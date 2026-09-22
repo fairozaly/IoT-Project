@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Success</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body class="result-page">
+<div class="modal">
+  <button class="modal-close" onclick="window.top.location.href='registration.html'">&times;</button>
+  <h2>Success!</h2>
+  <p>Client has been added.</p>
+  <a class="action" href="customers.html" target="_top">View Clients</a>
+</div>
+<script>
+  document.body.classList.toggle("dark-mode", localStorage.getItem("darkMode") === "true");
+</script>
+</body>
+</html>

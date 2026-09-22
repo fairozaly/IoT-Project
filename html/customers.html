@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customers</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body class="customers-page">
+<nav>
+  <div class="brand"></span>Smart Store</div>
+  <div class="nav-links">
+    <a href="#">Home</a>
+    <a href="#">Inventory</a>
+    <a href="customers.html" class="active">Customers</a>
+    <a href="#">Settings</a>
+  </div>
+  <div class="nav-buttons">
+    <button type="button" id="themeToggle" aria-label="Enable dark mode">Dark mode</button>
+  </div>
+</nav>
+
+<main>
+  <div class="heading-row">
+    <h1>Customers</h1>
+    <button class="add-customer" onclick="window.location.href='registration.html'">Add Customer</button>
+  </div>
+  <p class="subhead">View and Manage Customers</p>
+  <div class="grid" id="cardGrid"></div>
+</main>
+
+<script>
+  const CARD_COUNT = 6;
+  const grid = document.getElementById("cardGrid");
+  for (let i = 0; i < CARD_COUNT; i++) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-details">
+        <h3>Full Name</h3>
+        <p>email</p>
+      </div>
+      <button class="edit-button" type="button">Edit</button>
+    `;
+    grid.appendChild(card);
+  }
+
+  const themeToggle = document.getElementById("themeToggle");
+  const darkModeEnabled = localStorage.getItem("darkMode") === "true";
+  document.body.classList.toggle("dark-mode", darkModeEnabled);
+  themeToggle.textContent = darkModeEnabled ? "Light mode" : "Dark mode";
+  themeToggle.setAttribute("aria-label", darkModeEnabled ? "Disable dark mode" : "Enable dark mode");
+  themeToggle.addEventListener("click", () => {
+    const isDarkMode = document.body.classList.toggle("dark-mode");
+    localStorage.setItem("darkMode", isDarkMode);
+    themeToggle.textContent = isDarkMode ? "Light mode" : "Dark mode";
+    themeToggle.setAttribute("aria-label", isDarkMode ? "Disable dark mode" : "Enable dark mode");
+  });
+</script>
+</body>
+</html>
