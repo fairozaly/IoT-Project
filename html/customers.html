@@ -30,20 +30,30 @@
 </main>
 
 <script>
-  const CARD_COUNT = 6;
   const grid = document.getElementById("cardGrid");
-  for (let i = 0; i < CARD_COUNT; i++) {
+  async function loadCustomers() {
+    const response = await fetch("/api/customers");
+    if (!response.ok) throw new Error("Could not load customers");
+    const { customers } = await response.json();
+    grid.innerHTML = "";
+    customers.forEach((customer) => {
     const card = document.createElement("div");
     card.className = "card";
     card.innerHTML = `
       <div class="card-details">
-        <h3>Full Name</h3>
-        <p>email</p>
+        <h3>${customer.id} ${customer.first_name} ${customer.last_name}</h3>
+        <p>${customer.email}</p>
       </div>
       <button class="edit-button" type="button">Edit</button>
     `;
     grid.appendChild(card);
+    });
+    if (!customers.length) grid.innerHTML = "<p class=\"subhead\">No customers yet.</p>";
   }
+
+  loadCustomers().catch(() => {
+    grid.innerHTML = "<p class=\"subhead\">Connect to the server to load customers.</p>";
+  });
 
   const themeToggle = document.getElementById("themeToggle");
   const darkModeEnabled = localStorage.getItem("darkMode") === "true";
