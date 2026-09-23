@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventory</title>
+<link rel="stylesheet" href="../assets/css/main.css">
+</head>
+<body class="customers-page">
+<nav>
+  <div class="brand">Smart Store</div>
+  <div class="nav-links">
+    <a href="customers.html">Home</a>
+    <a href="inventory.html" class="active">Inventory</a>
+    <a href="customers.html">Customers</a>
+    <a href="settings.html">Settings</a>
+  </div>
+  <div class="nav-buttons">
+    <button type="button" id="themeToggle" aria-label="Enable dark mode">Dark mode</button>
+  </div>
+</nav>
+
+<main>
+  <div class="heading-row">
+    <h1>Inventory</h1>
+  </div>
+  <p class="subhead">Coming soon</p>
+</main>
+
+<script>
+  const themeToggle = document.getElementById("themeToggle");
+  const darkModeEnabled = localStorage.getItem("darkMode") === "true";
+  document.body.classList.toggle("dark-mode", darkModeEnabled);
+  themeToggle.textContent = darkModeEnabled ? "Light mode" : "Dark mode";
+  themeToggle.setAttribute("aria-label", darkModeEnabled ? "Disable dark mode" : "Enable dark mode");
+  themeToggle.addEventListener("click", () => {
+    const isDarkMode = document.body.classList.toggle("dark-mode");
+    localStorage.setItem("darkMode", isDarkMode);
+    themeToggle.textContent = isDarkMode ? "Light mode" : "Dark mode";
+    themeToggle.setAttribute("aria-label", isDarkMode ? "Disable dark mode" : "Enable dark mode");
+  });
+</script>
+</body>
+</html>
