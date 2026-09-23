@@ -11,25 +11,18 @@ def get_connection() -> sqlite3.Connection:
 
 def initialize_database() -> None:
     with get_connection() as connection:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS customers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                first_name TEXT NOT NULL,
-                last_name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
+        with open("db/schema.sql", "r") as file:
+            schema = file.read()
+
+        connection.executescript(schema)
 
 def list_customers() -> list[dict[str, Any]]:
     with get_connection() as connection:
         rows = connection.execute(
             """
-            SELECT id, first_name, last_name, email, created_at
+            SELECT customer_id, first_name, last_name, email
             FROM customers
-            ORDER BY id DESC
+            ORDER BY customer_id DESC
             """
         ).fetchall()
     return [dict(row) for row in rows]
@@ -45,9 +38,9 @@ def create_customer(first_name: str, last_name: str, email: str) -> dict[str, An
         )
         row = connection.execute(
             """
-            SELECT id, first_name, last_name, email, created_at
+            SELECT customer_id, first_name, last_name, email
             FROM customers
-            WHERE id = ?
+            WHERE customer_id = ?
             """,
             (cursor.lastrowid,),
         ).fetchone()
