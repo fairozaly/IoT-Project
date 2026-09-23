@@ -1,82 +1,78 @@
-import json
-import re
-from http import HTTPStatus
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-from typing import Any
-from urllib.parse import urlparse
-import sqlite3
+import os
 
-from db import create_customer, initialize_database, list_customers
+from flask import Flask, flash, redirect, render_template, request, url_for
 
-ROOT = Path(__file__).parent
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+from db import (
+    DATABASE,
+    add_customer,
+    close_connection,
+    get_customer_by_email,
+    get_customer_by_phone,
+    get_customers,
+    init_db,
+)
 
+app = Flask(__name__)
+app.secret_key = "dev-secret-key-change-me"
+app.teardown_appcontext(close_connection)
 
-class StoreRequestHandler(SimpleHTTPRequestHandler):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, directory=str(ROOT), **kwargs)
+@app.route("/")
+def index():
+    return render_template("customers.html", customers=get_customers(), active_page="customers")
 
-    def send_json(self, payload: Any, status: HTTPStatus = HTTPStatus.OK) -> None:
-        body = json.dumps(payload).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(body)
+@app.route("/customers")
+def customers():
+    return render_template("customers.html", customers=get_customers(), active_page="customers")
 
-    def read_json(self) -> dict[str, Any]:
-        length = int(self.headers.get("Content-Length", "0"))
-        return json.loads(self.rfile.read(length))
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
+        address = request.form.get("address", "").strip()
+        phone = request.form.get("phone", "").strip() or None
+        email = request.form.get("email", "").strip() or None
 
-    def do_GET(self) -> None:
-        path = urlparse(self.path).path
-        if path == "/api/customers":
-            self.send_json({"customers": list_customers()})
-            return
-        super().do_GET()
+        errors = []
+        if not first_name:
+            errors.append("First name is required.")
+        if not last_name:
+            errors.append("Last name is required.")
+        if not address:
+            errors.append("Address is required.")
+        if get_customer_by_email(email):
+            errors.append("A customer with that email already exists.")
+        if get_customer_by_phone(phone):
+            errors.append("A customer with that phone number already exists.")
 
-    def do_POST(self) -> None:
-        if urlparse(self.path).path != "/api/customers":
-            self.send_json({"error": "Endpoint not found"}, HTTPStatus.NOT_FOUND)
-            return
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return render_template(
+                "registration.html",
+                form=request.form,
+                active_page="customers",
+            )
 
-        try:
-            data = self.read_json()
-            first_name = str(data.get("firstName", "")).strip()
-            last_name = str(data.get("lastName", "")).strip()
-            email = str(data.get("email", "")).strip().lower()
-            if not first_name or not last_name or not EMAIL_PATTERN.match(email):
-                self.send_json(
-                    {"error": "First name, last name, and a valid email are required"},
-                    HTTPStatus.BAD_REQUEST,
-                )
-                return
-            customer = create_customer(first_name, last_name, email)
-        except json.JSONDecodeError:
-            self.send_json({"error": "Request body must be valid JSON"}, HTTPStatus.BAD_REQUEST)
-            return
-        except sqlite3.IntegrityError:
-            self.send_json({"error": "A customer with that email already exists"}, HTTPStatus.CONFLICT)
-            return
+        add_customer(first_name, last_name, address, phone, email)
+        flash(f"Customer {first_name} {last_name} created successfully.", "success")
+        return redirect(url_for("customers"))
 
-        self.send_json({"customer": customer}, HTTPStatus.CREATED)
-
-    def do_OPTIONS(self) -> None:
-        self.send_response(HTTPStatus.NO_CONTENT)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
+    return render_template("registration.html", form={}, active_page="customers")
 
 
-def main() -> None:
-    initialize_database()
-    server = ThreadingHTTPServer(("0.0.0.0", 8000), StoreRequestHandler)
-    print("Smart Store running at http://localhost:8000")
-    server.serve_forever()
+@app.route("/inventory")
+def inventory():
+    return render_template("inventory.html", active_page="inventory")
+
+@app.route("/settings")
+def settings():
+    return render_template("settings.html", active_page="settings")
 
 
 if __name__ == "__main__":
-    main()
+    if not os.path.exists(DATABASE):
+        print("initializing database...")
+        init_db(app)
+
+    app.run(debug=True)

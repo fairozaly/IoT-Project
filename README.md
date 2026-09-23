@@ -1,16 +1,14 @@
-# Smart Store
+# IoT Project
 
 ## Setup
 
+1. Start by installing all dependencies
 ```
-# create the data directory for the database file(s)
-mkdir data
+$ pip install -r requirements.txt
 ```
 
 ## Run
 
 ```
-python app.py
+$ python app.py
 ```
-
-Then open http://localhost:8000

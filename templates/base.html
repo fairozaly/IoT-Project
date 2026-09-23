@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Smart Store{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  </head>
+  <body class="{% block body_class %}customers-page{% endblock %}">
+  <nav>
+    <div class="brand">Smart Store</div>
+    <div class="nav-links">
+      <a href="/inventory"{% if active_page == 'inventory' %} class="active"{% endif %}>Inventory</a>
+      <a href="/customers"{% if active_page == 'customers' %} class="active"{% endif %}>Customers</a>
+      <a href="/settings"{% if active_page == 'settings' %} class="active"{% endif %}>Settings</a>
+    </div>
+    <div class="nav-buttons">
+      <button type="button" id="themeToggle" aria-label="Enable dark mode">Dark mode</button>
+    </div>
+  </nav>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <div class="toast-container" id="toastContainer">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="toast {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/toasts.js') }}"></script>
+  </body>
+</html>

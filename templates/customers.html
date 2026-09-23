@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Customers{% endblock %}
+
+{% block content %}
+    <div class="heading-row">
+      <h1>Customers</h1>
+      <button class="add-customer" onclick="window.location.href='{{ url_for('register') }}'">Add Customer</button>
+    </div>
+    <p class="subhead">View and Manage Customers</p>
+    <div class="grid" id="cardGrid">
+      {% for customer in customers %}
+      <div class="card">
+        <div class="card-details">
+          <h3>{{ customer["first_name"] }} {{ customer["last_name"] }}</h3>
+          <p>{{ customer["email"] or "No email" }} &middot; {{ customer["phone"] or "No phone" }}</p>
+          <p>{{ customer["address"] }}</p>
+        </div>
+        <button type="button" class="edit-button">Edit</button>
+      </div>
+      {% else %}
+      <p class="subhead">No customers yet.</p>
+      {% endfor %}
+    </div>
+{% endblock %}

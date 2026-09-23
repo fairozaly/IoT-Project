@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS Customers (
     first_name      TEXT NOT NULL,
     last_name       TEXT NOT NULL,
     address         TEXT NOT NULL,
-    phone           TEXT,
-    email           TEXT              
+    phone           TEXT UNIQUE,
+    email           TEXT UNIQUE              
 );
 
 CREATE TABLE IF NOT EXISTS Products (

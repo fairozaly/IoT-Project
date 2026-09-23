@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Register Customer{% endblock %}
+
+{% block body_class %}registration-page{% endblock %}
+
+{% block content %}
+    <div class="page">
+      <a class="back" href="{{ url_for('customers') }}">&larr; Back to customers</a>
+      <h1>Register Customer</h1>
+      <p class="subhead">Add a new customer to Smart Store</p>
+
+      <form method="post" action="{{ url_for('register') }}">
+        <div class="field">
+          <label for="first_name">First name</label>
+          <input type="text" id="first_name" name="first_name" value="{{ form.get('first_name', '') }}" required>
+        </div>
+        <div class="field">
+          <label for="last_name">Last name</label>
+          <input type="text" id="last_name" name="last_name" value="{{ form.get('last_name', '') }}" required>
+        </div>
+        <div class="field">
+          <label for="address">Address</label>
+          <textarea id="address" name="address" required>{{ form.get('address', '') }}</textarea>
+        </div>
+        <div class="field">
+          <label for="phone">Phone (optional)</label>
+          <input type="tel" id="phone" name="phone" value="{{ form.get('phone', '') }}">
+        </div>
+        <div class="field">
+          <label for="email">Email (optional)</label>
+          <input type="email" id="email" name="email" value="{{ form.get('email', '') }}">
+        </div>
+        <button type="submit">Register Customer</button>
+      </form>
+    </div>
+{% endblock %}

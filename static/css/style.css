@@ -161,9 +161,71 @@ h1 {
   font-size: 14px;
 }
 
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  animation: toast-in 0.25s ease-out;
+}
+
+.toast.hiding {
+  animation: toast-out 0.3s ease-in forwards;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(24px); }
+}
+
+.toast.success {
+  background: #e6f4ea;
+  color: #1e7e34;
+  border-color: #b7e1c1;
+}
+
+.toast.error {
+  background: #fdecea;
+  color: #c62828;
+  border-color: #f5c6c6;
+}
+
+body.dark-mode .toast.success {
+  background: #1e3324;
+  color: #7ee2a0;
+  border-color: #2f6b45;
+}
+
+body.dark-mode .toast.error {
+  background: #3a2222;
+  color: #f2a0a0;
+  border-color: #7a3b3b;
+}
+
+body.dark-mode .toast {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
 .grid {
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 .card {
@@ -171,8 +233,10 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }
 
 .card-details { min-width: 0; }
@@ -189,21 +253,6 @@ h1 {
 }
 
 .edit-button:hover { background: var(--bg); }
-.card:last-child { border-bottom: none; }
-
-.card-icon {
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--ink);
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-style: italic;
-  font-family: Georgia, serif;
-  margin-bottom: 8px;
-}
 
 .card h3 {
   font-size: 15px;
@@ -346,13 +395,6 @@ button[type="submit"]:disabled { background: #999; cursor: not-allowed; }
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-}
-
-.status {
-  margin-top: 14px;
-  font-size: 12px;
-  color: var(--muted);
-  text-align: center;
 }
 
 .result-page .modal {
