@@ -12,6 +12,11 @@ from db import (
     init_db,
 )
 
+from gpio import (
+    indicate_success,
+    indicate_failure
+)
+
 app = Flask(__name__)
 app.secret_key = "dev-secret-key-change-me"
 app.teardown_appcontext(close_connection)
@@ -48,18 +53,20 @@ def register():
         if errors:
             for error in errors:
                 flash(error, "error")
+            indicate_failure()
             return render_template(
                 "registration.html",
                 form=request.form,
                 active_page="customers",
             )
 
+
         add_customer(first_name, last_name, address, phone, email)
         flash(f"Customer {first_name} {last_name} created successfully.", "success")
+        indicate_success()
         return redirect(url_for("customers"))
 
     return render_template("registration.html", form={}, active_page="customers")
-
 
 @app.route("/inventory")
 def inventory():

@@ -1,2 +1,2 @@
 Flask==3.1.0
-RPi.GPIO==0.7.1
+rpi-lgpio==0.6
