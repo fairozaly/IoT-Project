@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Fridges{% endblock %}
+
+{% block content %}
+    <div class="heading-row">
+      <h1>Fridges</h1>
+    </div>
+    <div class="grid" id="cardGrid">
+      {% for label, reading in fridges.items() %}
+      <div class="card">
+        <div class="card-details">
+          <h3>{{ label }}</h3>
+          <p>Temperature: {{ "%.1f"|format(reading["temperature"]) }} &deg;C</p>
+          <p>Humidity: {{ "%.1f"|format(reading["humidity"]) }} %</p>
+        </div>
+      </div>
+      {% else %}
+      <p class="subhead">No fridge readings yet.</p>
+      {% endfor %}
+    </div>
+{% endblock %}
