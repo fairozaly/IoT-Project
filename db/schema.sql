@@ -43,3 +43,31 @@ CREATE TABLE IF NOT EXISTS PaymentMethods (
     status              TEXT NOT NULL DEFAULT 'approved',
     FOREIGN KEY (transaction_id) REFERENCES Transactions(transaction_id)
 );
+
+CREATE TABLE IF NOT EXISTS Sensors (
+    sensor_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    location    TEXT NOT NULL,
+    temp_min    REAL NOT NULL,
+    temp_max    REAL NOT NULL,
+    humid_min   REAL NOT NULL,
+    humid_max   REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS SensorReadings (
+    reading_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    sensor_id   INTEGER NOT NULL,
+    timestamp   TEXT DEFAULT CURRENT_TIMESTAMP,
+    temperature REAL NOT NULL,
+    humidity    REAL NOT NULL,
+    FOREIGN KEY (sensor_id) REFERENCES Sensors(sensor_id)
+);
+
+CREATE TABLE IF NOT EXISTS Alerts (
+    alert_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    reading_id  INTEGER NOT NULL,
+    alert_type  TEXT NOT NULL,
+    resolved    INTEGER NOT NULL DEFAULT 0,
+    timestamp   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reading_id) REFERENCES SensorReadings(reading_id)
+);
