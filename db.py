@@ -51,6 +51,107 @@ def get_customer_by_phone(phone):
     return db.execute("SELECT customer_id FROM Customers WHERE phone = ?", (phone,)).fetchone()
 
 
+def get_or_create_sensor(name, location):
+    db = get_db()
+    sensor = db.execute("SELECT sensor_id FROM Sensors WHERE name = ?", (name,)).fetchone()
+    if sensor:
+        return sensor["sensor_id"]
+    cur = db.execute(
+        "INSERT INTO Sensors (name, location, temp_min, temp_max, humid_min, humid_max) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (name, location, -99.0, 99.0, 0.0, 100.0),
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def set_sensor_thresholds(name, temp_min, temp_max, humid_min, humid_max):
+    db = get_db()
+    sensor = db.execute("SELECT sensor_id FROM Sensors WHERE name = ?", (name,)).fetchone()
+    if sensor:
+        db.execute(
+            "UPDATE Sensors SET temp_min = ?, temp_max = ?, humid_min = ?, humid_max = ? "
+            "WHERE sensor_id = ?",
+            (temp_min, temp_max, humid_min, humid_max, sensor["sensor_id"]),
+        )
+    else:
+        db.execute(
+            "INSERT INTO Sensors (name, location, temp_min, temp_max, humid_min, humid_max) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (name, name, temp_min, temp_max, humid_min, humid_max),
+        )
+    db.commit()
+
+
+def get_sensor_thresholds(sensor_id):
+    db = get_db()
+    return db.execute(
+        "SELECT temp_min, temp_max, humid_min, humid_max FROM Sensors WHERE sensor_id = ?",
+        (sensor_id,),
+    ).fetchone()
+
+
+def create_alert(reading_id, alert_type):
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO Alerts (reading_id, alert_type) VALUES (?, ?)",
+        (reading_id, alert_type),
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def get_pending_alerts():
+    db = get_db()
+    cur = db.execute(
+        "SELECT a.alert_id, s.name AS sensor_name, a.alert_type, r.temperature, r.humidity, "
+        "       s.temp_min, s.temp_max, s.humid_min, s.humid_max "
+        "FROM Alerts a "
+        "JOIN SensorReadings r ON r.reading_id = a.reading_id "
+        "JOIN Sensors s ON s.sensor_id = r.sensor_id "
+        "WHERE a.resolved = 0 "
+        "ORDER BY a.alert_id"
+    )
+    return cur.fetchall()
+
+
+def mark_alerts_sent(alert_ids):
+    if not alert_ids:
+        return
+    db = get_db()
+    placeholders = ",".join("?" for _ in alert_ids)
+    db.execute(
+        f"UPDATE Alerts SET resolved = 1 WHERE alert_id IN ({placeholders})",
+        tuple(alert_ids),
+    )
+    db.commit()
+
+
+def add_sensor_reading(sensor_id, temperature, humidity):
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO SensorReadings (sensor_id, temperature, humidity) VALUES (?, ?, ?)",
+        (sensor_id, temperature, humidity),
+    )
+    db.commit()
+    return cur.lastrowid
+
+
+def get_latest_readings():
+    db = get_db()
+    cur = db.execute(
+        "SELECT s.name, r.temperature, r.humidity, r.timestamp "
+        "FROM Sensors s "
+        "JOIN SensorReadings r ON r.reading_id = ("
+        "    SELECT reading_id FROM SensorReadings "
+        "    WHERE sensor_id = s.sensor_id "
+        "    ORDER BY timestamp DESC, reading_id DESC LIMIT 1"
+        ") "
+        "ORDER BY s.name"
+    )
+    return cur.fetchall()
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()

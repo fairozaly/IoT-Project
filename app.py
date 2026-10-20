@@ -1,57 +1,27 @@
-import os
-
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 
 from db import (
-    DATABASE,
     add_customer,
     close_connection,
     get_customer_by_email,
     get_customer_by_phone,
     get_customers,
+    get_latest_readings,
+    get_pending_alerts,
     init_db,
+    mark_alerts_sent,
 )
-
-import paho.mqtt.client as mqtt
 
 from gpio import (
     indicate_success,
     indicate_failure
 )
 
-MQTT_SERVER_ADDRESS = "10.0.0.237"
-MQTT_SERVER_PORT = 1883
+from mqtt import setup_mqtt
 
 app = Flask(__name__)
 app.secret_key = "827mo34t9zwb3ty598"
 app.teardown_appcontext(close_connection)
-
-fridge_readings = {}
-
-def on_connect_mqtt(client, userdata, flags, reason_code, properties):
-    print(f"Connected with result code {reason_code}")
-
-    client.subscribe("SmartHome/Frig1")
-
-def on_message_mqtt(client, userdata, message):
-    label = message.topic.rsplit("/", 1)[-1]
-
-    try:
-        humidity, temperature = message.payload.decode().split(",")
-        fridge_readings[label] = {
-            "temperature": float(temperature),
-            "humidity": float(humidity),
-        }
-    except ValueError:
-        print(f"Invalid payload on {message.topic}: {message.payload!r}")
-
-def setup_mqtt():
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.on_connect = on_connect_mqtt
-    client.on_message = on_message_mqtt
-    client.connect(MQTT_SERVER_ADDRESS, MQTT_SERVER_PORT)
-    client.loop_start()
-    return client
 
 @app.route("/")
 def index():
@@ -106,18 +76,48 @@ def inventory():
 
 @app.route("/fridges")
 def fridges():
-    return render_template("fridges.html", fridges=fridge_readings, active_page="fridges")
+    return render_template("fridges.html", fridges=get_latest_readings(), active_page="fridges")
 
 @app.route("/settings")
 def settings():
     return render_template("settings.html", active_page="settings")
 
 
+@app.route("/alerts")
+def alerts():
+    rows = get_pending_alerts()
+    items = []
+    alert_ids = []
+    for row in rows:
+        alert_ids.append(row["alert_id"])
+        if row["alert_type"].startswith("temperature"):
+            message = (
+                f"Fridge {row['sensor_name']} has a dangerous temperature {row['temperature']:.1f}C"
+            )
+        else:
+            message = (
+                f"Fridge {row['sensor_name']} has a dangerous humidity {row['humidity']:.1f}%"
+            )
+        items.append({"id": row["alert_id"], "message": message})
+    mark_alerts_sent(alert_ids)
+    return jsonify(items)
+
+
+@app.route("/api/readings")
+def api_readings():
+    readings = get_latest_readings()
+    return jsonify([
+        {
+            "name": reading["name"],
+            "temperature": reading["temperature"],
+            "humidity": reading["humidity"],
+        }
+        for reading in readings
+    ])
+
+
 if __name__ == "__main__":
-    if not os.path.exists(DATABASE):
-        print("initializing database...")
-        init_db(app)
+    init_db(app)
+    setup_mqtt(app)
 
-    setup_mqtt()
-
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

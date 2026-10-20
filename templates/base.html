@@ -32,5 +32,6 @@
   </div>
   <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <script src="{{ url_for('static', filename='js/toasts.js') }}"></script>
+  {% block scripts %}{% endblock %}
   </body>
 </html>

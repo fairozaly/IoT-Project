@@ -7,11 +7,11 @@
 
 #define FRIDGE_1_PIN 12
 
-#define MQTT_SERVER_ADDRESS "10.0.0.237"
+#define MQTT_SERVER_ADDRESS "192.168.50.111"
 #define MQTT_SERVER_PORT 1883
 
-#define NETWORK_SSID ""
-#define NETWORK_PASSWORD ""
+#define NETWORK_SSID "iotvanier"
+#define NETWORK_PASSWORD "14730078"
 
 class state_t {
 public:
