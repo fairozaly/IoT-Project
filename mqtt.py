@@ -8,7 +8,7 @@ from db import (
     set_sensor_thresholds,
 )
 
-MQTT_SERVER_ADDRESS = "192.168.50.111"
+MQTT_SERVER_ADDRESS = "127.0.0.1"
 MQTT_SERVER_PORT = 1883
 
 FRIDGE_THRESHOLDS = {

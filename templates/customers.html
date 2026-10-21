@@ -1,25 +1,15 @@
 {% extends "base.html" %}
-
 {% block title %}Customers{% endblock %}
-
+{% block header_title %}Users{% endblock %}
 {% block content %}
-    <div class="heading-row">
-      <h1>Customers</h1>
-      <button class="add-customer" onclick="window.location.href='{{ url_for('register') }}'">Add Customer</button>
-    </div>
-    <p class="subhead">View and Manage Customers</p>
-    <div class="grid" id="cardGrid">
+<section class="page-section">
+  <div class="page-heading"><div><p class="eyebrow">CUSTOMER MANAGEMENT</p><h1>Users</h1><p class="subhead">View and manage registered customers</p></div><a class="btn btn-primary" href="{{ url_for('register') }}">+ Add Customer</a></div>
+  <div class="section-panel"><div class="section-heading"><div class="section-title"><span class="section-symbol">▦</span><h2>Registered customers</h2></div><span class="count-pill">{{ customers|length }} total</span></div>
+    <div class="customer-grid" id="cardGrid">
       {% for customer in customers %}
-      <div class="card">
-        <div class="card-details">
-          <h3>{{ customer["first_name"] }} {{ customer["last_name"] }}</h3>
-          <p>{{ customer["email"] or "No email" }} &middot; {{ customer["phone"] or "No phone" }}</p>
-          <p>{{ customer["address"] }}</p>
-        </div>
-        <button type="button" class="edit-button">Edit</button>
-      </div>
-      {% else %}
-      <p class="subhead">No customers yet.</p>
-      {% endfor %}
+      <article class="customer-card"><div class="customer-avatar">{{ customer['first_name'][:1]|upper }}{{ customer['last_name'][:1]|upper }}</div><div class="customer-info"><h3>{{ customer['first_name'] }} {{ customer['last_name'] }}</h3><p>{{ customer['email'] or 'No email provided' }}</p><p>{{ customer['phone'] or 'No phone provided' }}</p><p class="customer-address">{{ customer['address'] }}</p></div></article>
+      {% else %}<div class="empty-state"><span class="empty-icon">♧</span><h3>No customers yet</h3><p>Register your first customer to see them here.</p><a href="{{ url_for('register') }}" class="btn btn-primary">Add customer</a></div>{% endfor %}
     </div>
+  </div>
+</section>
 {% endblock %}

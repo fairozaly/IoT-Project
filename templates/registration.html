@@ -1,37 +1,10 @@
 {% extends "base.html" %}
-
 {% block title %}Register Customer{% endblock %}
-
 {% block body_class %}registration-page{% endblock %}
-
+{% block header_title %}Register Customer{% endblock %}
 {% block content %}
-    <div class="page">
-      <a class="back" href="{{ url_for('customers') }}">&larr; Back to customers</a>
-      <h1>Register Customer</h1>
-      <p class="subhead">Add a new customer to Smart Store</p>
-
-      <form method="post" action="{{ url_for('register') }}">
-        <div class="field">
-          <label for="first_name">First name</label>
-          <input type="text" id="first_name" name="first_name" value="{{ form.get('first_name', '') }}" required>
-        </div>
-        <div class="field">
-          <label for="last_name">Last name</label>
-          <input type="text" id="last_name" name="last_name" value="{{ form.get('last_name', '') }}" required>
-        </div>
-        <div class="field">
-          <label for="address">Address</label>
-          <textarea id="address" name="address" required>{{ form.get('address', '') }}</textarea>
-        </div>
-        <div class="field">
-          <label for="phone">Phone (optional)</label>
-          <input type="tel" id="phone" name="phone" value="{{ form.get('phone', '') }}">
-        </div>
-        <div class="field">
-          <label for="email">Email (optional)</label>
-          <input type="email" id="email" name="email" value="{{ form.get('email', '') }}">
-        </div>
-        <button type="submit">Register Customer</button>
-      </form>
-    </div>
+<section class="page-section form-page"><div class="page-heading"><div><a class="back-link" href="{{ url_for('customers') }}">← Back to users</a><h1>Register Customer</h1><p class="subhead">Add a customer to the Smart Store system</p></div></div>
+<div class="section-panel"><div class="section-heading"><div class="section-title"><span class="section-symbol">▦</span><h2>Customer details</h2></div></div>
+<form method="post" action="{{ url_for('register') }}" class="customer-form"><div class="form-grid"><div class="field"><label for="first_name">First name <span class="required">*</span></label><input id="first_name" name="first_name" type="text" value="{{ form.get('first_name', '') }}" required autocomplete="given-name"></div><div class="field"><label for="last_name">Last name <span class="required">*</span></label><input id="last_name" name="last_name" type="text" value="{{ form.get('last_name', '') }}" required autocomplete="family-name"></div><div class="field full"><label for="address">Address <span class="required">*</span></label><textarea id="address" name="address" required autocomplete="street-address">{{ form.get('address', '') }}</textarea></div><div class="field"><label for="phone">Phone <span class="optional">Optional</span></label><input id="phone" name="phone" type="tel" value="{{ form.get('phone', '') }}" autocomplete="tel"></div><div class="field"><label for="email">Email <span class="optional">Optional</span></label><input id="email" name="email" type="email" value="{{ form.get('email', '') }}" autocomplete="email"></div></div><div class="form-actions"><a class="btn btn-secondary" href="{{ url_for('customers') }}">Cancel</a><button type="submit" class="btn btn-primary">Register Customer</button></div></form>
+</div></section>
 {% endblock %}

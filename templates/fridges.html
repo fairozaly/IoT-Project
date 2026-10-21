@@ -1,26 +1,43 @@
 {% extends "base.html" %}
 
-{% block title %}Fridges{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/fridges.js') }}"></script>
-{% endblock %}
+{% block title %}Storage Overview | Smart Store{% endblock %}
+{% block body_class %}customers-page fridges-dashboard-page{% endblock %}
 
 {% block content %}
-    <div class="heading-row">
-      <h1>Fridges</h1>
-    </div>
-    <div class="grid" id="cardGrid">
-      {% for reading in fridges %}
-      <div class="card">
-        <div class="card-details">
-          <h3>{{ reading["name"] }}</h3>
-          <p>Temperature: {{ "%.1f"|format(reading["temperature"]) }} &deg;C</p>
-          <p>Humidity: {{ "%.1f"|format(reading["humidity"]) }} %</p>
-        </div>
-      </div>
-      {% else %}
-      <p class="subhead">No fridge readings yet.</p>
-      {% endfor %}
-    </div>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<section class="fridge-dashboard" aria-label="Storage overview">
+  <div class="fd-heading">
+    <div><div class="fd-eyebrow">STORAGE MONITORING</div><h1>Storage Overview</h1><p>Refrigerator readings update automatically every 3 seconds.</p></div>
+    <div class="fd-live"><span class="fd-pulse"></span><span id="fd-update">Waiting for readings</span></div>
+  </div>
+  <div id="fd-error" class="fd-error" role="alert" hidden></div>
+  <div class="fd-cards" id="fd-cards" aria-live="polite">
+    {% for reading in fridges %}
+    <article class="fd-fridge" data-fridge="{{ reading['name']|e }}">
+      <div class="fd-fridge-head"><div class="fd-name"><span class="fd-icon" aria-hidden="true">▦</span><h2>{{ reading['name'] }}</h2></div><span class="fd-status">DATA AVAILABLE</span></div>
+      <div class="fd-metrics"><div class="fd-metric"><span>Temperature</span><strong>{{ '%.1f'|format(reading['temperature']) }} <small>°C</small></strong></div><div class="fd-metric"><span>Humidity</span><strong>{{ '%.1f'|format(reading['humidity']) }} <small>%</small></strong></div></div>
+      <div class="fd-meta"><span>Current threshold</span><strong title="Not provided by /api/readings">Not available</strong></div>
+      <div class="fd-meta"><span>Fan status</span><strong title="Not provided by /api/readings">Unknown</strong></div>
+    </article>
+    {% else %}
+    <div class="fd-empty">No refrigerator readings yet. The cards will appear when the backend receives sensor data.</div>
+    {% endfor %}
+  </div>
+  <div class="fd-charts">
+    <section class="fd-chart-card" aria-labelledby="fd-temp-title">
+      <div class="fd-chart-head"><h2 id="fd-temp-title"><span class="fd-mini-bars">▥</span> Temperature history</h2><select id="fd-temp-filter" aria-label="Select refrigerator for temperature chart"><option value="all">All refrigerators</option></select></div>
+      <div class="fd-legend" id="fd-temp-legend"></div>
+      <div class="fd-chart-area"><svg id="fd-temp-chart" role="img" aria-label="Temperature chart" viewBox="0 0 650 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+    </section>
+    <section class="fd-chart-card" aria-labelledby="fd-humidity-title">
+      <div class="fd-chart-head"><h2 id="fd-humidity-title"><span class="fd-mini-bars">▥</span> Humidity history</h2><select id="fd-humidity-filter" aria-label="Select refrigerator for humidity chart"><option value="all">All refrigerators</option></select></div>
+      <div class="fd-legend" id="fd-humidity-legend"></div>
+      <div class="fd-chart-area"><svg id="fd-humidity-chart" role="img" aria-label="Humidity chart" viewBox="0 0 650 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+    </section>
+  </div>
+</section>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/fridges.js') }}"></script>
 {% endblock %}
