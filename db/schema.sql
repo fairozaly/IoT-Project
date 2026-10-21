@@ -48,10 +48,8 @@ CREATE TABLE IF NOT EXISTS Sensors (
     sensor_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL,
     location    TEXT NOT NULL,
-    temp_min    REAL NOT NULL,
-    temp_max    REAL NOT NULL,
-    humid_min   REAL NOT NULL,
-    humid_max   REAL NOT NULL
+    temp_threshold REAL NOT NULL,
+    humid_threshold REAL NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS SensorReadings (

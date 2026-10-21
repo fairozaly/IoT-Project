@@ -57,28 +57,28 @@ def get_or_create_sensor(name, location):
     if sensor:
         return sensor["sensor_id"]
     cur = db.execute(
-        "INSERT INTO Sensors (name, location, temp_min, temp_max, humid_min, humid_max) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (name, location, -99.0, 99.0, 0.0, 100.0),
+        "INSERT INTO Sensors (name, location, temp_threshold, humid_threshold) "
+        "VALUES (?, ?, ?, ?)",
+        (name, location, 99.0, 100.0),
     )
     db.commit()
     return cur.lastrowid
 
 
-def set_sensor_thresholds(name, temp_min, temp_max, humid_min, humid_max):
+def set_sensor_thresholds(name, temp_threshold, humid_threshold):
     db = get_db()
     sensor = db.execute("SELECT sensor_id FROM Sensors WHERE name = ?", (name,)).fetchone()
     if sensor:
         db.execute(
-            "UPDATE Sensors SET temp_min = ?, temp_max = ?, humid_min = ?, humid_max = ? "
+            "UPDATE Sensors SET temp_threshold = ?, humid_threshold = ? "
             "WHERE sensor_id = ?",
-            (temp_min, temp_max, humid_min, humid_max, sensor["sensor_id"]),
+            (temp_threshold, humid_threshold, sensor["sensor_id"]),
         )
     else:
         db.execute(
-            "INSERT INTO Sensors (name, location, temp_min, temp_max, humid_min, humid_max) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (name, name, temp_min, temp_max, humid_min, humid_max),
+            "INSERT INTO Sensors (name, location, temp_threshold, humid_threshold) "
+            "VALUES (?, ?, ?, ?)",
+            (name, name, temp_threshold, humid_threshold),
         )
     db.commit()
 
@@ -86,7 +86,7 @@ def set_sensor_thresholds(name, temp_min, temp_max, humid_min, humid_max):
 def get_sensor_thresholds(sensor_id):
     db = get_db()
     return db.execute(
-        "SELECT temp_min, temp_max, humid_min, humid_max FROM Sensors WHERE sensor_id = ?",
+        "SELECT temp_threshold, humid_threshold FROM Sensors WHERE sensor_id = ?",
         (sensor_id,),
     ).fetchone()
 
@@ -105,7 +105,7 @@ def get_pending_alerts():
     db = get_db()
     cur = db.execute(
         "SELECT a.alert_id, s.name AS sensor_name, a.alert_type, r.temperature, r.humidity, "
-        "       s.temp_min, s.temp_max, s.humid_min, s.humid_max "
+        "       s.temp_threshold, s.humid_threshold "
         "FROM Alerts a "
         "JOIN SensorReadings r ON r.reading_id = a.reading_id "
         "JOIN Sensors s ON s.sensor_id = r.sensor_id "
@@ -152,9 +152,33 @@ def get_latest_readings():
     return cur.fetchall()
 
 
+def migrate_sensor_thresholds(db):
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(Sensors)")}
+    if "temp_min" not in columns and "temp_max" not in columns:
+        return
+
+    if "temp_threshold" not in columns:
+        db.execute(
+            "ALTER TABLE Sensors ADD COLUMN temp_threshold REAL NOT NULL DEFAULT 99.0"
+        )
+    if "humid_threshold" not in columns:
+        db.execute(
+            "ALTER TABLE Sensors ADD COLUMN humid_threshold REAL NOT NULL DEFAULT 100.0"
+        )
+
+    db.execute(
+        "UPDATE Sensors SET temp_threshold = temp_max, humid_threshold = humid_max"
+    )
+    db.execute("ALTER TABLE Sensors DROP COLUMN temp_min")
+    db.execute("ALTER TABLE Sensors DROP COLUMN temp_max")
+    db.execute("ALTER TABLE Sensors DROP COLUMN humid_min")
+    db.execute("ALTER TABLE Sensors DROP COLUMN humid_max")
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
         with app.open_resource("db/schema.sql", mode="r") as f:
             db.cursor().executescript(f.read())
+        migrate_sensor_thresholds(db)
         db.commit()

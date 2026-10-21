@@ -1,6 +1,12 @@
 (function () {
   var grid = document.getElementById("cardGrid");
+  var fanStatus = document.getElementById("fanStatus");
   if (!grid) return;
+
+  function renderFan(state) {
+    if (!fanStatus) return;
+    fanStatus.textContent = "Fan: " + (state.running ? "running" : "stopped");
+  }
 
   function render(readings) {
     grid.textContent = "";
@@ -44,6 +50,15 @@
       .catch(function () {});
   }
 
+  function refreshFan() {
+    fetch("/api/fan")
+      .then(function (response) { return response.json(); })
+      .then(renderFan)
+      .catch(function () {});
+  }
+
   refresh();
+  refreshFan();
   setInterval(refresh, 3000);
+  setInterval(refreshFan, 3000);
 })();

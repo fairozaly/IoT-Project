@@ -17,10 +17,19 @@ from gpio import (
     indicate_failure
 )
 
-from mqtt import setup_mqtt
+from fan import (
+    is_fan_running,
+    stop_fan,
+)
+
+from mqtt import (
+    FAN_STARTED_ALERT,
+    FAN_STOPPED_ALERT,
+    setup_mqtt,
+)
 
 app = Flask(__name__)
-app.secret_key = "827mo34t9zwb3ty598"
+app.secret_key = "5ycw3t498otcawthvahoth98"
 app.teardown_appcontext(close_connection)
 
 @app.route("/")
@@ -90,7 +99,12 @@ def alerts():
     alert_ids = []
     for row in rows:
         alert_ids.append(row["alert_id"])
-        if row["alert_type"].startswith("temperature"):
+        alert_type = row["alert_type"]
+        if alert_type == FAN_STARTED_ALERT:
+            message = f"Fridge {row['sensor_name']} is out of range, fan started"
+        elif alert_type == FAN_STOPPED_ALERT:
+            message = f"Fridge {row['sensor_name']} is back in range, fan stopped"
+        elif alert_type.startswith("temperature"):
             message = (
                 f"Fridge {row['sensor_name']} has a dangerous temperature {row['temperature']:.1f}C"
             )
@@ -101,6 +115,11 @@ def alerts():
         items.append({"id": row["alert_id"], "message": message})
     mark_alerts_sent(alert_ids)
     return jsonify(items)
+
+
+@app.route("/api/fan")
+def api_fan():
+    return jsonify({"running": is_fan_running()})
 
 
 @app.route("/api/readings")
@@ -118,6 +137,7 @@ def api_readings():
 
 if __name__ == "__main__":
     init_db(app)
+    stop_fan()
     setup_mqtt(app)
 
     app.run(debug=True, use_reloader=False)
