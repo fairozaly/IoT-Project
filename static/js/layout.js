@@ -1,4 +1,4 @@
-/* layout.js */ (function () { 'use strict';
+(function () { 'use strict';
 
 const button = document.getElementById('notificationsToggle'); if (!button) return;
 

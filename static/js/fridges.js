@@ -31,7 +31,7 @@
   function showCards(readings) {
     grid.replaceChildren();
     if (!readings.length) {
-      grid.appendChild(el('div', 'fd-empty', 'No refrigerator readings yet. Information will appear when sensor data becomes available.'));
+      grid.appendChild(el('div', 'fd-empty', 'No refrigerator readings yet.'));
       return;
     }
     readings.forEach(function (item) {
