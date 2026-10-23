@@ -1098,3 +1098,26 @@ body.dark-mode .fd-status {
     background: var(--hover);
     color: var(--blue);
 }
+
+.account-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.header-actions form { margin: 0; }
+.fan-approval { margin: 0 0 20px; color: var(--muted, #687c90); }
+.fd-live { flex-wrap: wrap; }
+@media (max-width: 640px) { .account-email { display: none; } }
+
+.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth-card { width: 100%; max-width: 420px; padding: 32px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel, #fff); }
+.auth-card h1 { margin-top: 0; }
+.auth-card p { line-height: 1.6; }
+.auth-card form { display: grid; gap: 12px; margin-top: 24px; }
+.auth-card input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--input-bg, #fff); color: inherit; }
+.auth-card button { padding: 12px; margin-top: 8px; border: 0; border-radius: 8px; background: #0879c5; color: white; }
+.auth-card [role="alert"] { color: #b42318; }
+
+.fd-gauge {
+    width: min(100%, 220px) !important;
+    height: auto !important;
+    aspect-ratio: 1;
+}
+.fd-gauge[hidden] { display: none; }
+.fd-metric:has(.fd-gauge) { padding: 12px 6px; gap: 4px; }

@@ -1,3 +1,6 @@
+import os
+import secrets
+
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 
 from db import (
@@ -12,21 +15,20 @@ from db import (
     mark_alerts_sent,
 )
 
-from gpio import (
-    indicate_success,
-    indicate_failure
-)
+from auth import init_auth
+from fan_control import get_status, init_control, stop_manually
+from gpio import indicate_failure, indicate_success
+
+from fan import stop_fan
 
 from mqtt import setup_mqtt
 
 app = Flask(__name__)
-app.secret_key = "827mo34t9zwb3ty598"
+app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 app.teardown_appcontext(close_connection)
+init_auth(app)
 
-@app.route("/")
-def index():
-    return render_template("customers.html", customers=get_customers(), active_page="customers")
-
+@app.route("/", endpoint="index")
 @app.route("/customers")
 def customers():
     return render_template("customers.html", customers=get_customers(), active_page="customers")
@@ -62,7 +64,6 @@ def register():
                 active_page="customers",
             )
 
-
         add_customer(first_name, last_name, address, phone, email)
         flash(f"Customer {first_name} {last_name} created successfully.", "success")
         indicate_success()
@@ -93,7 +94,12 @@ def alerts():
     alert_ids = []
     for row in rows:
         alert_ids.append(row["alert_id"])
-        if row["alert_type"].startswith("temperature"):
+        alert_type = row["alert_type"]
+        if alert_type == "fan started":
+            message = f"Fridge {row['sensor_name']} is out of range, fan started"
+        elif alert_type == "fan stopped":
+            message = f"Fridge {row['sensor_name']} fan stopped"
+        elif alert_type.startswith("temperature"):
             message = (
                 f"Fridge {row['sensor_name']} has a dangerous temperature {row['temperature']:.1f}C"
             )
@@ -106,21 +112,33 @@ def alerts():
     return jsonify(items)
 
 
+@app.route("/api/fan")
+def api_fan():
+    return jsonify(get_status())
+
+
+@app.route("/api/fan/stop", methods=["POST"])
+def api_stop_fan():
+    stop_manually()
+    return jsonify(get_status())
+
 @app.route("/api/readings")
 def api_readings():
-    readings = get_latest_readings()
-    return jsonify([
-        {
-            "name": reading["name"],
-            "temperature": reading["temperature"],
-            "humidity": reading["humidity"],
-        }
-        for reading in readings
-    ])
+    return jsonify([dict(reading) for reading in get_latest_readings()])
+
+def create_app(test_config=None):
+    app.config["START_SERVICES"] = True
+    if test_config:
+        app.config.update(test_config)
+    init_db(app)
+    if app.config["START_SERVICES"]:
+        stop_fan()
+    init_control(app)
+    if app.config["START_SERVICES"]:
+        app.extensions["mqtt"] = setup_mqtt(app)
+    return app
 
 
 if __name__ == "__main__":
-    init_db(app)
-    setup_mqtt(app)
-
+    app = create_app()
     app.run(debug=True, use_reloader=False)

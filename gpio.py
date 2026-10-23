@@ -1,10 +1,8 @@
 import RPi.GPIO as GPIO
-
-import time
 from time import sleep
 
 SUCCESS_INDICATOR_IO = 23
-FAILURE_INDICATOR_IO = 22
+FAILURE_INDICATOR_IO = 24
 
 def indicate_failure() -> None:
     GPIO.setmode(GPIO.BCM)
