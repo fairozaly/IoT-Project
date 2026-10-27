@@ -13,6 +13,11 @@ from db import (
     get_pending_alerts,
     init_db,
     mark_alerts_sent,
+    add_product,
+    update_product,
+    edit_product,
+    get_product,
+    get_product_by_barcode,
 )
 
 from auth import init_auth
@@ -74,6 +79,26 @@ def register():
 @app.route("/inventory")
 def inventory():
     return render_template("inventory.html", active_page="inventory")
+    
+# Checkout Stuffs
+@app.route("/checkout", methods=["GET", "POST"])
+def inventory():
+    if request.method == "POST":
+    return render_template("checkout.html", active_page="checkout")
+
+@app.route("/submit-barcode", methods=["POST"])
+def inventory():
+    if request.method == "POST":
+        data = request.get_JSON()
+        barcode = data.get('barcode')
+        item = get_product_by_barcode();
+        if item = None:
+            # TODO: IMPLEMENT LATER - If unknown barcode prompt form to create new product OR just show an alert saying unknown
+            return render_template("createproduct.html", active_page="createproduct")
+        else:
+            
+        return render_template("checkout.html", active_page="checkout")
+
 
 @app.route("/fridges")
 def fridges():

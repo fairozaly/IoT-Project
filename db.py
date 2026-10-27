@@ -37,6 +37,65 @@ def add_customer(first_name, last_name, address, phone=None, email=None):
     )
     db.commit()
 
+# PRODUCT METHODS
+def get_product(product_id):
+    db = get_db()
+    
+    cur = db.execute(
+        "SELECT name, barcode, SDK, price, quantity FROM Products WHERE product_id = ?",
+        (product_id,)
+    )
+    return cur.fetchone()
+
+def get_product_by_barcode(barcode):
+    db = get_db()
+    
+    cur = db.execute(
+        "SELECT name, SDK, price, quantity FROM Products WHERE product_id = ?",
+        (barcode,)
+    )
+    return cur.fetchone()
+
+def add_product(name, price, quantity, barcode=None, SDK=None,):
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO Products (name, barcode, SDK, price, quantity) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (name, barcode, SDK, price, quantity),
+    )
+    db.commit()
+
+def edit_product(product_id, name=None, barcode=None, SDK=None, price=default, quantity=None):
+    db = get_db()
+    # Get the existing product information
+    tempname, tempbarcode, tempSDK, tempprice, tempquantity = get_product(product_id)
+    
+    # If new info wasnt added, use old info
+    if (name == None):
+        name = tempname
+    if (barcode == None):
+        barcode = tempbarcode
+    if (SDK == None):
+        SDK = tempSDK
+    if (price == None)
+        price = tempprice
+    if (quantity == None):
+        quantity = tempquantity
+    
+    # Allows us to use this method to increase or decrease quantity as well
+    if ("+" in quantity):
+        quantity = tempquantity + int(re.sub(r'\D', '', str(quantity)))
+
+    if ("-" in quantity):
+        quantity = tempquantity - int(re.sub(r'\D', '', str(quantity)))
+    
+    cur = db.execute(
+        "UPDATE Products SET name = ?, barcode = ?, SDK = ?, price = ?, quantity = ? WHERE product_id = ?",
+        (name, barcode, SDK, price, quantity, product_id)
+    )
+    db.commit()
+
+
 
 def get_customer_by_email(email):
     if not email:
