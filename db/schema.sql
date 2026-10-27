@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS Customers (
 CREATE TABLE IF NOT EXISTS Products (
     product_id      INTEGER PRIMARY KEY AUTOINCREMENT,
     name            TEXT NOT NULL,
-    barcode         TEXT UNIQUE NOT NULL,   
+    barcode         TEXT UNIQUE,   
+    SDK             TEXT UNIQUE,
     price           REAL NOT NULL,
     quantity        INTEGER NOT NULL DEFAULT 0
 );
