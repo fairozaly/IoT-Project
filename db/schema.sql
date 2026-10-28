@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS Products (
     barcode         TEXT UNIQUE,   
     SDK             TEXT UNIQUE,
     price           REAL NOT NULL,
-    quantity        INTEGER NOT NULL DEFAULT 0
+    quantity        INTEGER NOT NULL DEFAULT 0,
+    company         TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS Transactions (

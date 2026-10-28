@@ -42,7 +42,7 @@ def get_product(product_id):
     db = get_db()
     
     cur = db.execute(
-        "SELECT name, barcode, SDK, price, quantity FROM Products WHERE product_id = ?",
+        "SELECT name, barcode, SDK, price, quantity, company FROM Products WHERE product_id = ?",
         (product_id,)
     )
     return cur.fetchone()
@@ -51,24 +51,24 @@ def get_product_by_barcode(barcode):
     db = get_db()
     
     cur = db.execute(
-        "SELECT name, SDK, price, quantity FROM Products WHERE product_id = ?",
+        "SELECT name, SDK, price, quantity, company FROM Products WHERE product_id = ?",
         (barcode,)
     )
     return cur.fetchone()
 
-def add_product(name, price, quantity, barcode=None, SDK=None,):
+def add_product(name, price, quantity, barcode=None, SDK=None, company=None):
     db = get_db()
-    cur = db.execute(
-        "INSERT INTO Products (name, barcode, SDK, price, quantity) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (name, barcode, SDK, price, quantity),
+    db.execute(
+        "INSERT INTO Products (name, barcode, SDK, price, quantity, company) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (name, barcode, SDK, price, quantity, company),
     )
     db.commit()
 
-def edit_product(product_id, name=None, barcode=None, SDK=None, price=default, quantity=None):
+def edit_product(product_id, name=None, barcode=None, SDK=None, price=default, quantity=None, company=none):
     db = get_db()
     # Get the existing product information
-    tempname, tempbarcode, tempSDK, tempprice, tempquantity = get_product(product_id)
+    tempname, tempbarcode, tempSDK, tempprice, tempquantity, tempcompany = get_product(product_id)
     
     # If new info wasnt added, use old info
     if (name == None):
@@ -81,6 +81,8 @@ def edit_product(product_id, name=None, barcode=None, SDK=None, price=default, q
         price = tempprice
     if (quantity == None):
         quantity = tempquantity
+    if (company == None):
+        company = tempcompany
     
     # Allows us to use this method to increase or decrease quantity as well
     if ("+" in quantity):

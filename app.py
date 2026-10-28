@@ -82,22 +82,27 @@ def inventory():
     
 # Checkout Stuffs
 @app.route("/checkout", methods=["GET", "POST"])
-def inventory():
-    if request.method == "POST":
+def checkout():
     return render_template("checkout.html", active_page="checkout")
 
 @app.route("/submit-barcode", methods=["POST"])
-def inventory():
+def scan_barcode():
     if request.method == "POST":
-        data = request.get_JSON()
-        barcode = data.get('barcode')
-        item = get_product_by_barcode();
-        if item = None:
+        data = request.get_json()
+        barcode = data.get('barcode')   
+        item = get_product_by_barcode(barcode);
+        if item is None:
             # TODO: IMPLEMENT LATER - If unknown barcode prompt form to create new product OR just show an alert saying unknown
-            return render_template("createproduct.html", active_page="createproduct")
+            flash("Unknown Barcode", "error")
+            return jsonify({"error": "Unknown barcode", "barcode": barcode}), 404
         else:
-            
-        return render_template("checkout.html", active_page="checkout")
+            return jsonify({
+            "product_id": item["product_id"],
+            "barcode": item["barcode"],
+            "name": item["name"],
+            "price": item["price"],
+            "stock": item["quantity"],
+    })
 
 
 @app.route("/fridges")
