@@ -14,7 +14,6 @@ from db import (
     init_db,
     mark_alerts_sent,
     add_product,
-    update_product,
     edit_product,
     get_product,
     get_product_by_barcode,
