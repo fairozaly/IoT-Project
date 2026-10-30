@@ -12,6 +12,7 @@ def get_db():
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
         db.row_factory = sqlite3.Row
+        db.execute("PRAGMA foreign_keys = ON")
     return db
 
 
@@ -82,6 +83,26 @@ def get_product_by_barcode(barcode):
         (barcode,),
     )
     return cur.fetchone()
+
+
+def get_products():
+    db = get_db()
+    return db.execute(
+        "SELECT product_id, name, category, upc, upc AS barcode, epc, SDK, "
+        "price, quantity, company "
+        "FROM Products ORDER BY name"
+    ).fetchall()
+
+
+def delete_product(product_id):
+    db = get_db()
+    try:
+        db.execute("DELETE FROM Products WHERE product_id = ?", (product_id,))
+        db.commit()
+        return True
+    except sqlite3.IntegrityError:
+        db.rollback()
+        return False
 
 
 def add_product(
@@ -161,6 +182,18 @@ def add_product_reception(product_id, quantity_received, supplier=None):
         (quantity_received, product_id),
     )
     db.commit()
+
+
+def get_product_receptions(limit=20):
+    db = get_db()
+    return db.execute(
+        "SELECT r.reception_id, p.name AS product_name, r.quantity_received, "
+        "r.received_at, r.supplier "
+        "FROM ProductReceptions r "
+        "JOIN Products p ON p.product_id = r.product_id "
+        "ORDER BY r.reception_id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
 
 
 

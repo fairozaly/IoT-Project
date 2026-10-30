@@ -1,22 +1,27 @@
 import os
 import secrets
+import sqlite3
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 
 from db import (
     add_customer,
+    add_product,
+    add_product_reception,
     close_connection,
+    delete_product,
+    edit_product,
     get_customer_by_email,
     get_customer_by_phone,
     get_customers,
     get_latest_readings,
     get_pending_alerts,
-    init_db,
-    mark_alerts_sent,
-    add_product,
-    edit_product,
     get_product,
     get_product_by_barcode,
+    get_product_receptions,
+    get_products,
+    init_db,
+    mark_alerts_sent,
 )
 
 from auth import init_auth
@@ -77,8 +82,199 @@ def register():
 
 @app.route("/inventory")
 def inventory():
-    return render_template("inventory.html", active_page="inventory")
-    
+    return render_template(
+        "inventory.html",
+        products=get_products(),
+        receptions=get_product_receptions(),
+        active_page="inventory",
+    )
+
+
+@app.route("/products/new", methods=["GET", "POST"])
+def new_product():
+    if request.method == "POST":
+        values = request.form.to_dict()
+        name = values.get("name", "").strip()
+        category = values.get("category", "").strip()
+        upc = values.get("upc", "").strip()
+        epc = values.get("epc", "").strip()
+        company = values.get("company", "").strip()
+        sdk = values.get("SDK", "").strip() or None
+        price_text = values.get("price", "").strip()
+
+        errors = []
+        if not name:
+            errors.append("Product name is required.")
+        if not category:
+            errors.append("Category is required.")
+        if not upc:
+            errors.append("UPC is required.")
+        elif len(upc) > 13:
+            errors.append("UPC must be 13 characters or fewer.")
+        if not epc:
+            errors.append("EPC is required.")
+        elif len(epc) > 24:
+            errors.append("EPC must be 24 characters or fewer.")
+        if not company:
+            errors.append("Producer company is required.")
+
+        try:
+            price = float(price_text)
+            if price < 0:
+                raise ValueError
+        except ValueError:
+            price = 0
+            errors.append("Enter a valid price.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return render_template(
+                "product_form.html",
+                product=values,
+                product_id=None,
+                active_page="inventory",
+            )
+
+        try:
+            add_product(
+                name=name,
+                category=category,
+                upc=upc,
+                epc=epc,
+                SDK=sdk,
+                price=price,
+                quantity=0,
+                company=company,
+            )
+        except sqlite3.IntegrityError:
+            flash("UPC, EPC, or SDK is already used by another product.", "error")
+            return render_template(
+                "product_form.html",
+                product=values,
+                product_id=None,
+                active_page="inventory",
+            )
+
+        flash(f"Product {name} added successfully.", "success")
+        return redirect(url_for("inventory"))
+
+    return render_template(
+        "product_form.html", product={}, product_id=None, active_page="inventory"
+    )
+
+
+@app.route("/products/<int:product_id>/edit", methods=["GET", "POST"])
+def edit_product_page(product_id):
+    product = get_product(product_id)
+    if product is None:
+        flash("Product not found.", "error")
+        return redirect(url_for("inventory"))
+
+    if request.method == "POST":
+        values = request.form.to_dict()
+        name = values.get("name", "").strip()
+        category = values.get("category", "").strip()
+        upc = values.get("upc", "").strip()
+        epc = values.get("epc", "").strip()
+        company = values.get("company", "").strip()
+        sdk = values.get("SDK", "").strip() or None
+        price_text = values.get("price", "").strip()
+
+        errors = []
+        if not name:
+            errors.append("Product name is required.")
+        if not category:
+            errors.append("Category is required.")
+        if not upc:
+            errors.append("UPC is required.")
+        elif len(upc) > 13:
+            errors.append("UPC must be 13 characters or fewer.")
+        if not epc:
+            errors.append("EPC is required.")
+        elif len(epc) > 24:
+            errors.append("EPC must be 24 characters or fewer.")
+        if not company:
+            errors.append("Producer company is required.")
+
+        try:
+            price = float(price_text)
+            if price < 0:
+                raise ValueError
+        except ValueError:
+            price = 0
+            errors.append("Enter a valid price.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return render_template(
+                "product_form.html",
+                product=values,
+                product_id=product_id,
+                active_page="inventory",
+            )
+
+        try:
+            edit_product(
+                product_id,
+                name=name,
+                category=category,
+                upc=upc,
+                epc=epc,
+                SDK=sdk,
+                price=price,
+                company=company,
+            )
+        except sqlite3.IntegrityError:
+            flash("UPC, EPC, or SDK is already used by another product.", "error")
+            return render_template(
+                "product_form.html",
+                product=values,
+                product_id=product_id,
+                active_page="inventory",
+            )
+
+        flash(f"Product {name} updated successfully.", "success")
+        return redirect(url_for("inventory"))
+
+    return render_template(
+        "product_form.html",
+        product=dict(product),
+        product_id=product_id,
+        active_page="inventory",
+    )
+
+
+@app.route("/products/<int:product_id>/delete", methods=["POST"])
+def remove_product(product_id):
+    product = get_product(product_id)
+    if product is None:
+        flash("Product not found.", "error")
+    elif delete_product(product_id):
+        flash(f"Product {product['name']} deleted successfully.", "success")
+    else:
+        flash("Product cannot be deleted because it is used in transactions.", "error")
+    return redirect(url_for("inventory"))
+
+
+@app.route("/inventory/receive", methods=["POST"])
+def receive_stock():
+    product_id = request.form.get("product_id", type=int)
+    quantity = request.form.get("quantity_received", type=int)
+    supplier = request.form.get("supplier", "").strip() or None
+
+    if product_id is None or get_product(product_id) is None:
+        flash("Select a valid product.", "error")
+    elif quantity is None or quantity <= 0:
+        flash("Received quantity must be greater than zero.", "error")
+    else:
+        add_product_reception(product_id, quantity, supplier)
+        flash(f"Received {quantity} item(s) into inventory.", "success")
+
+    return redirect(url_for("inventory"))
+
+
 # Checkout Stuffs
 @app.route("/checkout", methods=["GET", "POST"])
 def checkout():

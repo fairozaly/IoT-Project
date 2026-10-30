@@ -9,17 +9,129 @@
             <h1>Inventory</h1>
             <p class="subhead">Manage products and monitor stock levels</p>
         </div>
+        <a class="btn btn-primary" href="{{ url_for('new_product') }}">+ Add product</a>
     </div>
+
     <div class="section-panel">
         <div class="section-heading">
             <div class="section-title">
-                <h2>Inventory overview</h2>
+                <h2>Products</h2>
+            </div>
+            <span class="count-pill">{{ products|length }} total</span>
+        </div>
+        {% if products %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>UPC</th>
+                        <th>EPC</th>
+                        <th>Company</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product['name'] }}</td>
+                        <td>{{ product['category'] }}</td>
+                        <td>{{ product['upc'] }}</td>
+                        <td>{{ product['epc'] }}</td>
+                        <td>{{ product['company'] }}</td>
+                        <td>${{ '%.2f'|format(product['price']) }}</td>
+                        <td>{{ product['quantity'] }}</td>
+                        <td class="table-actions">
+                            <a class="btn btn-secondary" href="{{ url_for('edit_product_page', product_id=product['product_id']) }}">Edit</a>
+                            <form method="post" action="{{ url_for('remove_product', product_id=product['product_id']) }}" onsubmit="return confirm('Delete this product?');">
+                                <button class="btn btn-danger" type="submit">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>No products yet</h3>
+            <p>Add your first product to start managing inventory.</p>
+            <a href="{{ url_for('new_product') }}" class="btn btn-primary">Add product</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="section-panel">
+        <div class="section-heading">
+            <div class="section-title">
+                <h2>Receive stock</h2>
             </div>
         </div>
-        <div class="empty-state">
-            <h3>Inventory dashboard</h3>
-            <p>to be integrated</p>
+        {% if products %}
+        <form method="post" action="{{ url_for('receive_stock') }}" class="customer-form">
+            <div class="form-grid">
+                <div class="field">
+                    <label for="product_id">Product <span class="required">*</span></label>
+                    <select id="product_id" name="product_id" required>
+                        <option value="">Select a product</option>
+                        {% for product in products %}
+                        <option value="{{ product['product_id'] }}">{{ product['name'] }} — {{ product['upc'] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="quantity_received">Quantity received <span class="required">*</span></label>
+                    <input id="quantity_received" name="quantity_received" type="number" min="1" step="1" required>
+                </div>
+                <div class="field full">
+                    <label for="supplier">Supplier <span class="optional">Optional</span></label>
+                    <input id="supplier" name="supplier" type="text">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Receive stock</button>
+            </div>
+        </form>
+        {% else %}
+        <p>Add a product before receiving stock.</p>
+        {% endif %}
+    </div>
+
+    <div class="section-panel">
+        <div class="section-heading">
+            <div class="section-title">
+                <h2>Recent receptions</h2>
+            </div>
         </div>
+        {% if receptions %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity received</th>
+                        <th>Supplier</th>
+                        <th>Date received</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reception in receptions %}
+                    <tr>
+                        <td>{{ reception['product_name'] }}</td>
+                        <td>{{ reception['quantity_received'] }}</td>
+                        <td>{{ reception['supplier'] or '—' }}</td>
+                        <td>{{ reception['received_at'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No stock receptions recorded yet.</p>
+        {% endif %}
     </div>
 </section>
 {% endblock %}
