@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Storage History | Smart Store{% endblock %}
+{% block header_title %}Storage History{% endblock %}
+{% block body_class %}customers-page fridges-dashboard-page{% endblock %}
+
+{% block content %}
+<section class="fridge-dashboard" aria-label="Storage history">
+  <div class="fd-heading">
+    <div><div class="fd-eyebrow">STORAGE MONITORING</div><h1>Storage History</h1><p>Recent temperature and humidity readings collected while this page is open. Updates every 3 seconds.</p></div>
+    <div class="fd-live"><span class="fd-pulse"></span><span id="fd-update">Waiting for readings</span></div>
+  </div>
+  <div id="fd-error" class="fd-error" role="alert" hidden></div>
+  <div class="fd-charts">
+    <section class="fd-chart-card" aria-labelledby="fd-temp-title">
+      <div class="fd-chart-head"><h2 id="fd-temp-title"><span class="fd-mini-bars">▥</span> Temperature history</h2><select id="fd-temp-filter" aria-label="Select refrigerator for temperature chart"><option value="all">All refrigerators</option></select></div>
+      <div class="fd-legend" id="fd-temp-legend"></div>
+      <div class="fd-chart-area"><svg id="fd-temp-chart" role="img" aria-label="Temperature chart" viewBox="0 0 650 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+    </section>
+    <section class="fd-chart-card" aria-labelledby="fd-humidity-title">
+      <div class="fd-chart-head"><h2 id="fd-humidity-title"><span class="fd-mini-bars">▥</span> Humidity history</h2><select id="fd-humidity-filter" aria-label="Select refrigerator for humidity chart"><option value="all">All refrigerators</option></select></div>
+      <div class="fd-legend" id="fd-humidity-legend"></div>
+      <div class="fd-chart-area"><svg id="fd-humidity-chart" role="img" aria-label="Humidity chart" viewBox="0 0 650 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+    </section>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/fridges.js') }}"></script>
+{% endblock %}

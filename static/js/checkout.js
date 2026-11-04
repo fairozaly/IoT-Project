@@ -1,104 +1,74 @@
 (function () {
     'use strict';
-    let html5QrcodeScanner;
-    const scanCooldown = 3000;
-    let shoppingCart = JSON.parse(localStorage.getItem('checkoutCart')) || [];
-    // const lastScannedItem = JSON.parse(document.getElementById("last-item-data").textContent);
-    let lastScannedCode = "";
-    let lastScanTime = 0;
-    const successIndicator = document.getElementById('resultText'); // Not sure if temp or not, for displaying success or error, maybe replaced by beep?
-    html5QrcodeScanner = new Html5QrcodeScanner("reader", {fps:10, qrbox: 250}, false);
-    html5QrcodeScanner.render(scanItem);
-    renderCart();
-    console.log("WE ARE IN CHECKOUT JS SCRIPT");
+    const indicator = document.getElementById('resultText');
+    const barcodeInput = document.getElementById('barcode');
+    let scanQueue = Promise.resolve();
 
-    async function scanItem(Text, Result) {
-        if (Text === lastScannedCode && Date.now() - lastScanTime < scanCooldown) return;
-        lastScannedCode = Text;
-        lastScanTime = Date.now();
-        const response = await fetch('/submit-barcode', {
-            method: 'POST',
+    async function cartRequest(path = '/api/cart', method = 'GET', data) {
+        const response = await fetch(path, {
+            method,
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ barcode: Text }) 
+            body: data === undefined ? undefined : JSON.stringify(data)
         });
+        const cart = await response.json();
+        if (!response.ok) throw new Error(cart.error || 'Unable to update cart.');
+        renderCart(cart);
+    }
 
-        if (!response.ok) {
-            successIndicator.innerHTML = "Unknown barcode: " + Text;
-            return;
-        }
-
-        const item = await response.json();
-        if (addItemToCart(item)) {
-            successIndicator.innerHTML = 'Added ' + item.name;
+    async function scanItem(code) {
+        try {
+            await cartRequest('/api/cart/items', 'POST', {barcode: code});
+            indicator.textContent = 'Item added.';
+        } catch (error) {
+            indicator.textContent = error.message;
         }
     }
 
-    function addItemToCart(item) {
-        const existingItem = shoppingCart.find(cartItem => cartItem.product_id === item.product_id);
-
-        const amountInCart = existingItem ? existingItem.quantity : 0;
-
-         if (amountInCart >= item.stock) {
-            successIndicator.innerHTML = 'Not enough ' + item.name + ' in stock';
-            return false;
-        }
-
-        if (existingItem) {
-            existingItem.quantity += 1;
-            existingItem.stock = item.stock;
-        } else {
-            shoppingCart.push({ ...item, quantity: 1 });
-        }  
-
-    localStorage.setItem('checkoutCart', JSON.stringify(shoppingCart));
-    renderCart();
-    return true;
-    }
-
-    function decrementItem(product_id) {
-        const item = shoppingCart.find(cartItem => cartItem.product_id === product_id);
-
-        item.quantity -= 1;
-        if (item.quantity <= 0) {
-            shoppingCart = shoppingCart.filter(cartItem => cartItem.product_id !== product_id);
-        }
-
-        localStorage.setItem('checkoutCart', JSON.stringify(shoppingCart));
-        renderCart();
-    }
-
-    window.decrementItem = decrementItem; // Allows on click to access the function by attaching it to window
-
-    function renderCart() {
-    const cartContainer = document.getElementById('cart');
-
-    cartContainer.innerHTML = ''; // Clear out old items
-    let grandTotal = 0;
-
-    shoppingCart.forEach(item => {
-        const itemTotal = item.price * item.quantity;
-        grandTotal += itemTotal;
-
-        // Follows example layout in checkout
-        const itemRow = document.createElement('div');
-        itemRow.className = 'example-item';
-
-        itemRow.innerHTML = `
-            <div class="item-name-container">
-                <span class="item-name">${item.name}</span>
-            </div>
-            <div class="item-quantity-container">
-                <span class="item-quantity">${item.quantity}</span>
-                <button class="remove-item" onclick="decrementItem(${item.product_id})">-</button>
-            </div>
-            <div class="item-price-container">
-                <span class="item-price">${itemTotal.toFixed(2)}$</span>
-            </div>
-        `;
-        
-        cartContainer.appendChild(itemRow);
+    function renderCart(cart) {
+        const container = document.getElementById('cart');
+        container.replaceChildren();
+        cart.items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'example-item';
+            const label = document.createElement('span');
+            label.textContent = `${item.name} — ${item.quantity} — $${item.subtotal.toFixed(2)}`;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.textContent = '−';
+            remove.setAttribute('aria-label', `Remove one ${item.name}`);
+            remove.addEventListener('click', async () => {
+                remove.disabled = true;
+                try {
+                    await cartRequest(`/api/cart/items/${item.product_id}`, 'PATCH', {quantity: item.quantity - 1});
+                    indicator.textContent = 'Item removed.';
+                } catch (error) {
+                    indicator.textContent = error.message;
+                } finally {
+                    remove.disabled = false;
+                }
+            });
+            row.append(label, remove);
+            container.append(row);
         });
-
-          document.getElementById('cart-total').innerHTML = 'Total: ' + grandTotal.toFixed(2) + '$';
+        document.getElementById('cart-total').textContent = `Total: $${cart.total.toFixed(2)}`;
+        if (!cart.stock_available) indicator.textContent = 'Stock has changed. Remove unavailable quantities before checkout.';
     }
+
+    document.getElementById('clear-cart').addEventListener('click', async () => {
+        try {
+            await cartRequest('/api/cart', 'DELETE');
+            indicator.textContent = 'Cart cleared.';
+        } catch (error) {
+            indicator.textContent = error.message;
+        }
+    });
+    cartRequest().catch(error => { indicator.textContent = error.message; });
+    document.getElementById('barcode-form').addEventListener('submit', event => {
+        event.preventDefault();
+        const code = barcodeInput.value.trim();
+        if (!code) return;
+        barcodeInput.value = '';
+        barcodeInput.focus();
+        scanQueue = scanQueue.then(() => scanItem(code));
+    });
 })();

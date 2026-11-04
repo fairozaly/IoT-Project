@@ -32,10 +32,6 @@
                     <input id="upc" name="upc" type="text" maxlength="13" value="{{ product.get('upc', '') }}" required>
                 </div>
                 <div class="field">
-                    <label for="epc">EPC <span class="required">*</span></label>
-                    <input id="epc" name="epc" type="text" maxlength="24" value="{{ product.get('epc', '') }}" required>
-                </div>
-                <div class="field">
                     <label for="SDK">SDK <span class="optional">Optional</span></label>
                     <input id="SDK" name="SDK" type="text" value="{{ product.get('SDK') or '' }}">
                 </div>

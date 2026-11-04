@@ -16,12 +16,21 @@ CREATE TABLE IF NOT EXISTS Products (
     name            TEXT NOT NULL,
     category        TEXT NOT NULL,
     upc             TEXT NOT NULL UNIQUE CHECK (length(upc) <= 13),
-    epc             TEXT NOT NULL UNIQUE CHECK (length(epc) <= 24),
     SDK             TEXT UNIQUE,
     price           REAL NOT NULL CHECK (price >= 0),
     quantity        INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     company         TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS ProductTags (
+    tag_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id      INTEGER NOT NULL,
+    epc             TEXT NOT NULL COLLATE NOCASE UNIQUE
+                    CHECK (length(epc) BETWEEN 1 AND 24),
+    registered_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_product_tags_product_id ON ProductTags(product_id);
 
 CREATE TABLE IF NOT EXISTS ProductReceptions (
     reception_id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,3 +145,12 @@ CREATE INDEX IF NOT EXISTS idx_sensor_readings_sensor_id
     ON SensorReadings(sensor_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_reading_id
     ON Alerts(reading_id);
+
+CREATE TABLE IF NOT EXISTS CartItems (
+    user_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    PRIMARY KEY (user_id, product_id),
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
+);

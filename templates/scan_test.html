@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Scan Testing{% endblock %}
+{% block header_title %}Scan Testing{% endblock %}
+{% block content %}
+<section class="page-section">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">RFID TESTING</p>
+            <h1>Scan Testing</h1>
+            <p class="subhead">Check registered tags and their product information.</p>
+        </div>
+        <a class="btn btn-secondary" href="{{ url_for('inventory') }}">Back to inventory</a>
+    </div>
+
+    <div class="section-panel">
+        <div class="section-heading">
+            <div class="section-title"><h2>Live reader</h2></div>
+            <button id="reader-toggle" type="button" class="btn btn-secondary">Pause scanning</button>
+        </div>
+        <p id="reader-status" role="status" aria-live="polite">Connecting to reader…</p>
+        <p>Hold tags near the reader. Products appear below automatically as EPCs are read.</p>
+        <div id="live-results" class="table-wrap" hidden>
+            <table class="data-table">
+                <thead><tr><th>EPC</th><th>Status</th><th>Product</th><th>UPC</th><th>Price</th><th>Stock</th></tr></thead>
+                <tbody id="live-tags"></tbody>
+            </table>
+        </div>
+    </div>
+
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/scan_test.js') }}"></script>
+{% endblock %}

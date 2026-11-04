@@ -52,6 +52,12 @@
         </span>
         <span>Dashboard</span>  
       </a>
+      <a class="side-link {% if active_page == 'storage_history' %}active{% endif %}" href="{{ url_for('storage_history') }}" {% if active_page == 'storage_history' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3v18h18M7 16v-5m5 5V7m5 9v-8"/></svg>
+        </span>
+        <span>Storage History</span>
+      </a>
       <a class="side-link {% if active_page == 'inventory' %}active{% endif %}" href="{{ url_for('inventory') }}" {% if active_page == 'inventory' %}aria-current="page"{% endif %}>
         <span class="side-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -59,6 +65,14 @@
           </svg>
         </span>
         <span>Inventory</span>
+      </a>
+      <a class="side-link {% if active_page == 'scan_test' %}active{% endif %}" href="{{ url_for('scan_test') }}" {% if active_page == 'scan_test' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M7 8v8m4-8v8m3-8v8m3-8v8"/>
+          </svg>
+        </span>
+        <span>Scan Testing</span>
       </a>
       <a class="side-link {% if active_page == 'customers' %}active{% endif %}" href="{{ url_for('customers') }}" {% if active_page == 'customers' %}aria-current="page"{% endif %}>
         <span class="side-icon">

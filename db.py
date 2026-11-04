@@ -65,7 +65,7 @@ def get_product(product_id):
     db = get_db()
 
     cur = db.execute(
-        "SELECT product_id, name, category, upc, upc AS barcode, epc, SDK, "
+        "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
         "price, quantity, company "
         "FROM Products WHERE product_id = ?",
         (product_id,),
@@ -77,7 +77,7 @@ def get_product_by_barcode(barcode):
     db = get_db()
 
     cur = db.execute(
-        "SELECT product_id, name, category, upc, upc AS barcode, epc, SDK, "
+        "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
         "price, quantity, company "
         "FROM Products WHERE upc = ?",
         (barcode,),
@@ -88,8 +88,9 @@ def get_product_by_barcode(barcode):
 def get_products():
     db = get_db()
     return db.execute(
-        "SELECT product_id, name, category, upc, upc AS barcode, epc, SDK, "
-        "price, quantity, company "
+        "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
+        "price, quantity, company, "
+        "(SELECT COUNT(*) FROM ProductTags t WHERE t.product_id = Products.product_id) AS tag_count "
         "FROM Products ORDER BY name"
     ).fetchall()
 
@@ -113,16 +114,15 @@ def add_product(
     SDK=None,
     company=None,
     category="Uncategorized",
-    epc=None,
     upc=None,
 ):
     upc = upc or barcode
     db = get_db()
     db.execute(
         "INSERT INTO Products "
-        "(name, category, upc, epc, SDK, price, quantity, company) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (name, category, upc, epc, SDK, price, quantity, company),
+        "(name, category, upc, SDK, price, quantity, company) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (name, category, upc, SDK, price, quantity, company),
     )
     db.commit()
 
@@ -136,7 +136,6 @@ def edit_product(
     quantity=None,
     company=None,
     category=None,
-    epc=None,
     upc=None,
 ):
     existing = get_product(product_id)
@@ -147,7 +146,6 @@ def edit_product(
     upc = existing["upc"] if upc is None else upc
     name = existing["name"] if name is None else name
     category = existing["category"] if category is None else category
-    epc = existing["epc"] if epc is None else epc
     SDK = existing["SDK"] if SDK is None else SDK
     price = existing["price"] if price is None else price
     quantity = existing["quantity"] if quantity is None else quantity
@@ -162,12 +160,54 @@ def edit_product(
 
     db = get_db()
     db.execute(
-        "UPDATE Products SET name = ?, category = ?, upc = ?, epc = ?, SDK = ?, "
+        "UPDATE Products SET name = ?, category = ?, upc = ?, SDK = ?, "
         "price = ?, quantity = ?, company = ? WHERE product_id = ?",
-        (name, category, upc, epc, SDK, price, quantity, company, product_id),
+        (name, category, upc, SDK, price, quantity, company, product_id),
     )
     db.commit()
     return True
+
+
+def get_product_tags(product_id):
+    return get_db().execute(
+        "SELECT tag_id, epc, registered_at FROM ProductTags "
+        "WHERE product_id = ? ORDER BY tag_id DESC", (product_id,)
+    ).fetchall()
+
+
+def register_product_epc(product_id, epc):
+    epc = epc.strip().upper()
+    if not re.fullmatch(r"(?:[0-9A-F]{2}){1,12}", epc):
+        raise ValueError("EPC must contain an even number of hexadecimal characters (2–24).")
+    database = get_db()
+    try:
+        database.execute(
+            "INSERT INTO ProductTags (product_id, epc) VALUES (?, ?)",
+            (product_id, epc),
+        )
+        database.commit()
+    except sqlite3.IntegrityError:
+        database.rollback()
+        raise
+    return epc
+
+
+def get_product_by_epc(epc):
+    return get_db().execute(
+        "SELECT p.*, p.upc AS barcode FROM Products p "
+        "JOIN ProductTags t ON t.product_id = p.product_id WHERE t.epc = ?",
+        (epc.strip().upper(),),
+    ).fetchone()
+
+
+def delete_product_tag(product_id, tag_id):
+    database = get_db()
+    result = database.execute(
+        "DELETE FROM ProductTags WHERE product_id = ? AND tag_id = ?",
+        (product_id, tag_id),
+    )
+    database.commit()
+    return result.rowcount > 0
 
 
 def add_product_reception(product_id, quantity_received, supplier=None):
@@ -335,11 +375,61 @@ def migrate_sensor_thresholds(db):
     db.execute("ALTER TABLE Sensors DROP COLUMN humid_max")
 
 
+def migrate_product_tags(database):
+    """Move legacy product EPCs without changing IDs or dependent records."""
+    columns = {row["name"] for row in database.execute("PRAGMA table_info(Products)")}
+    if "epc" not in columns:
+        return
+    # SQLite requires rebuilding a table to remove a UNIQUE/NOT NULL column.
+    # Disable FK actions outside the transaction to preserve dependent records.
+    database.commit()
+    database.execute("PRAGMA foreign_keys = OFF")
+    try:
+        database.execute("BEGIN IMMEDIATE")
+        sequence = database.execute(
+            "SELECT seq FROM sqlite_sequence WHERE name = 'Products'"
+        ).fetchone()
+        database.execute(
+            "INSERT INTO ProductTags (product_id, epc) "
+            "SELECT product_id, UPPER(TRIM(epc)) FROM Products "
+            "WHERE epc IS NOT NULL AND TRIM(epc) <> ''"
+        )
+        database.execute("""
+            CREATE TABLE Products_new (
+                product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                upc TEXT NOT NULL UNIQUE CHECK (length(upc) <= 13),
+                SDK TEXT UNIQUE,
+                price REAL NOT NULL CHECK (price >= 0),
+                quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+                company TEXT NOT NULL
+            )
+        """)
+        database.execute(
+            "INSERT INTO Products_new (product_id, name, category, upc, SDK, price, quantity, company) "
+            "SELECT product_id, name, category, upc, SDK, price, quantity, company FROM Products"
+        )
+        database.execute("DROP TABLE Products")
+        database.execute("ALTER TABLE Products_new RENAME TO Products")
+        if sequence:
+            database.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'Products'", (sequence["seq"],))
+        if database.execute("PRAGMA foreign_key_check").fetchall():
+            raise sqlite3.IntegrityError("Product tag migration failed its foreign key check.")
+        database.commit()
+    except Exception:
+        database.rollback()
+        raise
+    finally:
+        database.execute("PRAGMA foreign_keys = ON")
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
         with app.open_resource("db/schema.sql", mode="r") as f:
             db.cursor().executescript(f.read())
+        migrate_product_tags(db)
         migrate_sensor_thresholds(db)
         db.commit()
 

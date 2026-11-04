@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ product['name'] }}{% endblock %}
+{% block header_title %}Inventory{% endblock %}
+{% block content %}
+<section class="page-section">
+    <div class="page-heading">
+        <div>
+            <a class="back-link" href="{{ url_for('inventory') }}">← Back to inventory</a>
+            <h1>{{ product['name'] }}</h1>
+            <p class="subhead">UPC {{ product['upc'] }} · {{ product['category'] }} · {{ product['company'] }}</p>
+            <p>${{ '%.2f'|format(product['price']) }} per unit · {{ product['quantity'] }} in stock · {{ tags|length }} registered RFID tags</p>
+        </div>
+        <a class="btn btn-secondary" href="{{ url_for('edit_product_page', product_id=product['product_id']) }}">Edit product</a>
+    </div>
+    <div class="section-panel">
+        <h2>Register an EPC</h2>
+        <p>Each physical unit needs its own unique RFID tag. Register multiple EPCs to this product's UPC.</p>
+        <form method="post" action="{{ url_for('product_detail', product_id=product['product_id']) }}" class="customer-form">
+            <div class="field">
+                <label for="epc">EPC <span class="required">*</span></label>
+                <input id="epc" name="epc" type="text" value="{{ epc_input }}"
+                       minlength="2" maxlength="24" pattern="([0-9A-Fa-f]{2}){1,12}"
+                       autocomplete="off" spellcheck="false" autofocus required
+                       aria-describedby="epc-help">
+                <p id="epc-help">Enter the tag's hexadecimal EPC (2–24 characters, in pairs), then press Enter. Letters are saved in uppercase.</p>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Register EPC</button>
+            </div>
+        </form>
+        <p>Registering a tag links it to this product. Use Receive stock in inventory to record quantities received.</p>
+    </div>
+    <div class="section-panel">
+        <h2>Registered EPCs</h2>
+        <p><a href="{{ url_for('scan_test') }}">scan testing</a></p>
+        {% if tags %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>EPC</th><th>Date registered (UTC)</th><th>Actions</th></tr></thead>
+                <tbody>
+                {% for tag in tags %}
+                    <tr>
+                        <td><code>{{ tag['epc'] }}</code></td>
+                        <td>{{ tag['registered_at'] }}</td>
+                        <td>
+                            <form method="post" action="{{ url_for('remove_product_tag', product_id=product['product_id'], tag_id=tag['tag_id']) }}"
+                                  onsubmit="return confirm('Delete this registered EPC?');">
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No EPCs registered yet. Register your first tag above.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

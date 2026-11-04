@@ -7,6 +7,7 @@
 <section class="fridge-dashboard" aria-label="Storage overview">
   <div class="fd-heading">
     <div><div class="fd-eyebrow">STORAGE MONITORING</div><h1>Storage Overview</h1><p>Refrigerator readings update automatically every 3 seconds.</p></div>
+    <a class="btn btn-secondary" href="{{ url_for('storage_history') }}">View history</a>
     <div class="fd-live"><span class="fd-pulse"></span><span id="fd-update">Waiting for readings</span><span id="fanStatus">Fan: unknown</span><button id="stopFan" type="button" class="btn btn-secondary">Stop fan</button></div>
   </div>
   <p id="fanApproval" class="fan-approval" role="status"></p>
@@ -23,18 +24,7 @@
     <div class="fd-empty">No refrigerator readings yet.</div>
     {% endfor %}
   </div>
-  <div class="fd-charts">
-    <section class="fd-chart-card" aria-labelledby="fd-temp-title">
-      <div class="fd-chart-head"><h2 id="fd-temp-title"><span class="fd-mini-bars">▥</span> Temperature history</h2><select id="fd-temp-filter" aria-label="Select refrigerator for temperature chart"><option value="all">All refrigerators</option></select></div>
-      <div class="fd-legend" id="fd-temp-legend"></div>
-      <div class="fd-chart-area"><svg id="fd-temp-chart" role="img" aria-label="Temperature chart" viewBox="0 0 650 260" preserveAspectRatio="xMidYMid meet"></svg></div>
-    </section>
-    <section class="fd-chart-card" aria-labelledby="fd-humidity-title">
-      <div class="fd-chart-head"><h2 id="fd-humidity-title"><span class="fd-mini-bars">▥</span> Humidity history</h2><select id="fd-humidity-filter" aria-label="Select refrigerator for humidity chart"><option value="all">All refrigerators</option></select></div>
-      <div class="fd-legend" id="fd-humidity-legend"></div>
-      <div class="fd-chart-area"><svg id="fd-humidity-chart" role="img" aria-label="Humidity chart" viewBox="0 0 650 260" preserveAspectRatio="xMidYMid meet"></svg></div>
-    </section>
-  </div>
+
 </section>
 
 {% endblock %}

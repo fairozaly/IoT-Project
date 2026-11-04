@@ -10,6 +10,7 @@ from db import (
     add_product_reception,
     close_connection,
     delete_product,
+    delete_product_tag,
     edit_product,
     get_customer_by_email,
     get_customer_by_phone,
@@ -17,25 +18,31 @@ from db import (
     get_latest_readings,
     get_pending_alerts,
     get_product,
-    get_product_by_barcode,
+    get_product_by_epc,
     get_product_receptions,
+    get_product_tags,
     get_products,
     init_db,
     mark_alerts_sent,
+    register_product_epc,
 )
 
 from auth import init_auth
+from cart import cart
 from fan_control import get_status, init_control, stop_manually
 from gpio import indicate_failure, indicate_success
 
 from fan import stop_fan
 
 from mqtt import setup_mqtt
+import tag_reader
+from serial import SerialException
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 app.teardown_appcontext(close_connection)
 init_auth(app)
+app.register_blueprint(cart)
 
 @app.route("/", endpoint="index")
 @app.route("/customers")
@@ -90,6 +97,42 @@ def inventory():
     )
 
 
+@app.route("/products/<int:product_id>", methods=["GET", "POST"])
+def product_detail(product_id):
+    product = get_product(product_id)
+    if product is None:
+        flash("Product not found.", "error")
+        return redirect(url_for("inventory"))
+    epc_input = ""
+    if request.method == "POST":
+        epc_input = request.form.get("epc", "")
+        try:
+            epc = register_product_epc(product_id, epc_input)
+        except ValueError as error:
+            flash(str(error), "error")
+        except sqlite3.IntegrityError:
+            flash("That EPC is already registered. Each physical item needs a unique EPC.", "error")
+        else:
+            flash(f"EPC {epc} registered to {product['name']}.", "success")
+            return redirect(url_for("product_detail", product_id=product_id))
+    return render_template(
+        "product_detail.html", product=product, tags=get_product_tags(product_id),
+        epc_input=epc_input, active_page="inventory",
+    )
+
+
+@app.post("/products/<int:product_id>/tags/<int:tag_id>/delete")
+def remove_product_tag(product_id, tag_id):
+    if get_product(product_id) is None:
+        flash("Product not found.", "error")
+        return redirect(url_for("inventory"))
+    if delete_product_tag(product_id, tag_id):
+        flash("EPC deleted successfully.", "success")
+    else:
+        flash("EPC not found for this product.", "error")
+    return redirect(url_for("product_detail", product_id=product_id))
+
+
 @app.route("/products/new", methods=["GET", "POST"])
 def new_product():
     if request.method == "POST":
@@ -97,7 +140,6 @@ def new_product():
         name = values.get("name", "").strip()
         category = values.get("category", "").strip()
         upc = values.get("upc", "").strip()
-        epc = values.get("epc", "").strip()
         company = values.get("company", "").strip()
         sdk = values.get("SDK", "").strip() or None
         price_text = values.get("price", "").strip()
@@ -111,10 +153,6 @@ def new_product():
             errors.append("UPC is required.")
         elif len(upc) > 13:
             errors.append("UPC must be 13 characters or fewer.")
-        if not epc:
-            errors.append("EPC is required.")
-        elif len(epc) > 24:
-            errors.append("EPC must be 24 characters or fewer.")
         if not company:
             errors.append("Producer company is required.")
 
@@ -141,14 +179,13 @@ def new_product():
                 name=name,
                 category=category,
                 upc=upc,
-                epc=epc,
                 SDK=sdk,
                 price=price,
                 quantity=0,
                 company=company,
             )
         except sqlite3.IntegrityError:
-            flash("UPC, EPC, or SDK is already used by another product.", "error")
+            flash("UPC or SDK is already used by another product.", "error")
             return render_template(
                 "product_form.html",
                 product=values,
@@ -164,6 +201,33 @@ def new_product():
     )
 
 
+@app.post("/api/scan-test/read")
+def read_test_tags():
+    try:
+        epcs = tag_reader.scan()
+    except (SerialException, OSError):
+        return jsonify(error="Reader unavailable. Check its USB connection and close any other tag reader script."), 503
+    results = []
+    for epc in epcs:
+        product = get_product_by_epc(epc)
+        status = "Not registered"
+        product_data = None
+        if product is not None:
+            status = "Found"
+            product_data = dict(product)
+        results.append({
+            "epc": epc,
+            "status": status,
+            "product": product_data,
+        })
+    return jsonify(results=results)
+
+
+@app.route("/scan-test")
+def scan_test():
+    return render_template("scan_test.html", active_page="scan_test")
+
+
 @app.route("/products/<int:product_id>/edit", methods=["GET", "POST"])
 def edit_product_page(product_id):
     product = get_product(product_id)
@@ -176,7 +240,6 @@ def edit_product_page(product_id):
         name = values.get("name", "").strip()
         category = values.get("category", "").strip()
         upc = values.get("upc", "").strip()
-        epc = values.get("epc", "").strip()
         company = values.get("company", "").strip()
         sdk = values.get("SDK", "").strip() or None
         price_text = values.get("price", "").strip()
@@ -190,10 +253,6 @@ def edit_product_page(product_id):
             errors.append("UPC is required.")
         elif len(upc) > 13:
             errors.append("UPC must be 13 characters or fewer.")
-        if not epc:
-            errors.append("EPC is required.")
-        elif len(epc) > 24:
-            errors.append("EPC must be 24 characters or fewer.")
         if not company:
             errors.append("Producer company is required.")
 
@@ -221,13 +280,12 @@ def edit_product_page(product_id):
                 name=name,
                 category=category,
                 upc=upc,
-                epc=epc,
                 SDK=sdk,
                 price=price,
                 company=company,
             )
         except sqlite3.IntegrityError:
-            flash("UPC, EPC, or SDK is already used by another product.", "error")
+            flash("UPC or SDK is already used by another product.", "error")
             return render_template(
                 "product_form.html",
                 product=values,
@@ -275,34 +333,18 @@ def receive_stock():
     return redirect(url_for("inventory"))
 
 
-# Checkout Stuffs
-@app.route("/checkout", methods=["GET", "POST"])
+@app.route("/checkout")
 def checkout():
     return render_template("checkout.html", active_page="checkout")
-
-@app.route("/submit-barcode", methods=["POST"])
-def scan_barcode():
-    if request.method == "POST":
-        data = request.get_json()
-        barcode = data.get('barcode')   
-        item = get_product_by_barcode(barcode);
-        if item is None:
-            # TODO: IMPLEMENT LATER - If unknown barcode prompt form to create new product OR just show an alert saying unknown
-            flash("Unknown Barcode", "error")
-            return jsonify({"error": "Unknown barcode", "barcode": barcode}), 404
-        else:
-            return jsonify({
-            "product_id": item["product_id"],
-            "barcode": item["barcode"],
-            "name": item["name"],
-            "price": item["price"],
-            "stock": item["quantity"],
-    })
 
 
 @app.route("/fridges")
 def fridges():
     return render_template("fridges.html", fridges=get_latest_readings(), active_page="fridges")
+
+@app.route("/storage-history")
+def storage_history():
+    return render_template("storage_history.html", active_page="storage_history")
 
 @app.route("/settings")
 def settings():

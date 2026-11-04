@@ -5,7 +5,8 @@
   const stopButton = document.getElementById('stopFan');
   const fanApproval = document.getElementById('fanApproval');
   const fanError = document.getElementById('fanError');
-  if (!grid) return;
+  const hasCharts = Boolean(document.getElementById('fd-temp-chart'));
+  if (!grid && !hasCharts) return;
   const error = document.getElementById('fd-error');
   const update = document.getElementById('fd-update');
   const history = new Map();
@@ -271,11 +272,13 @@
   async function refresh() {
     try {
       const readings = await fetchJson('/api/readings');
-      showCards(readings);
-      record(readings);
-      fillFilter('fd-temp-filter', readings);
-      fillFilter('fd-humidity-filter', readings);
-      redraw();
+      if (grid) showCards(readings);
+      if (hasCharts) {
+        record(readings);
+        fillFilter('fd-temp-filter', readings);
+        fillFilter('fd-humidity-filter', readings);
+        redraw();
+      }
 
       const latestTime = Math.max(...readings.map(item => readingTime(item.timestamp)));
       if (!readings.length) {
@@ -322,10 +325,12 @@
     }
   });
 
-  grid.replaceChildren();
-  document.getElementById('fd-temp-filter').addEventListener('change', redraw);
-  document.getElementById('fd-humidity-filter').addEventListener('change', redraw);
-  redraw();
+  if (grid) grid.replaceChildren();
+  if (hasCharts) {
+    document.getElementById('fd-temp-filter').addEventListener('change', redraw);
+    document.getElementById('fd-humidity-filter').addEventListener('change', redraw);
+    redraw();
+  }
   refresh();
-  refreshFan();
+  if (fanStatus) refreshFan();
 })();
