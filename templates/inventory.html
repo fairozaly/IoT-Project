@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}All Products | Smart Store{% endblock %}
-{% block header_title %}Product Management{% endblock %}
+{% block header_title %}Inventory Management{% endblock %}
 {% block body_class %}customers-page products-dashboard-page{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">{% endblock %}
 {% block content %}
@@ -10,10 +10,10 @@
   </div>
 
   <div class="products-overview" aria-label="Product statistics">
-    <article class="products-stat"><span>Current Stock</span><strong id="productsStock">0</strong><small>Units in inventory</small></article>
-    <article class="products-stat"><span>Unique Items</span><strong id="productsCount">{{ products|length }}</strong><small>Product listings</small></article>
-    <article class="products-stat"><span>Categories</span><strong id="productsCategories">0</strong><small>Distinct categories</small></article>
-    <article class="products-stat"><span>Manufacturers</span><strong id="productsManufacturers">0</strong><small>Distinct companies</small></article>
+    <article class="products-stat"><span>Current Stock</span><strong id="productsStock">0</strong></article>
+    <article class="products-stat"><span>Unique Items</span><strong id="productsCount">{{ products|length }}</strong></article>
+    <article class="products-stat"><span>Categories</span><strong id="productsCategories">0</strong></article>
+    <article class="products-stat"><span>Manufacturers</span><strong id="productsManufacturers">0</strong></article>
   </div>
 
   <div class="products-tools">
@@ -56,7 +56,7 @@
 
   <div class="inventory-extras">
     <section class="inventory-extra-card" aria-labelledby="receive-heading">
-      <div class="inventory-extra-heading"><h2 id="receive-heading">Receive stock</h2><span>Existing backend form</span></div>
+      <div class="inventory-extra-heading"><h2 id="receive-heading">Receive stock</h2></div>
       {% if products %}
       <form method="post" action="{{ url_for('receive_stock') }}" class="products-receive-form">
         <label>Product <select name="product_id" required><option value="">Select a product</option>{% for product in products %}<option value="{{ product['product_id'] }}">{{ product['name'] }} — {{ product['upc'] }}</option>{% endfor %}</select></label>
