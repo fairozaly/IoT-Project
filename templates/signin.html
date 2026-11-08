@@ -20,6 +20,7 @@
         <button type="submit">{{ self.title() }}</button>
       </form>
       {% block switch %}<p>Need an account? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>{% endblock %}
+      <p>Shopping here? <a href="{{ url_for('auth.customer_signup') }}">Create a customer account</a></p>
     </section>
   </main>
 </body>
