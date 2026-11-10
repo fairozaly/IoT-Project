@@ -1,8 +1,10 @@
 """Persistent, user-owned shopping carts. Stock is checked but not reserved."""
 from decimal import Decimal, ROUND_HALF_UP
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, flash, jsonify, redirect, request, session, url_for
 
+import loyalty
+import receipts
 from db import get_db
 
 cart = Blueprint("cart", __name__)
@@ -100,3 +102,72 @@ def change_item(product_id=None):
         database.rollback()
         raise
     return jsonify(cart_snapshot(database, user_id))
+
+
+@cart.post("/checkout/complete")
+def complete_checkout():
+    database = get_db()
+    user_id = session["user_id"]
+    customer_id = session.get("customer_id")
+
+    rows = database.execute(
+        "SELECT p.product_id, p.price, p.quantity AS stock, c.quantity "
+        "FROM CartItems c JOIN Products p ON p.product_id = c.product_id "
+        "WHERE c.user_id = ?", (user_id,)
+    ).fetchall()
+    if not rows:
+        flash("Your cart is empty.", "error")
+        return redirect(url_for("checkout"))
+
+    if any(item["quantity"] > item["stock"] for item in rows):
+        flash("Some items are no longer in stock. Update your cart and try again.", "error")
+        return redirect(url_for("checkout"))
+
+    total = sum(
+        Decimal(str(item["price"])) * item["quantity"] for item in rows
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    try:
+        database.execute("BEGIN IMMEDIATE")
+        transaction = database.execute(
+            "INSERT INTO Transactions (customer_id, total_amount, status) "
+            "VALUES (?, ?, 'completed')", (customer_id, float(total))
+        )
+        transaction_id = transaction.lastrowid
+
+        for item in rows:
+            database.execute(
+                "INSERT INTO TransactionItems "
+                "(transaction_id, product_id, quantity, price_at_sale) "
+                "VALUES (?, ?, ?, ?)",
+                (transaction_id, item["product_id"], item["quantity"], item["price"]))
+            database.execute(
+                "UPDATE Products SET quantity = quantity - ? WHERE product_id = ?",
+                (item["quantity"], item["product_id"]))
+
+        database.execute(
+            "INSERT INTO PaymentMethods (transaction_id, method, amount) "
+            "VALUES (?, 'card', ?)", (transaction_id, float(total)))
+        database.execute("DELETE FROM CartItems WHERE user_id = ?", (user_id,))
+
+        receipt_number = receipts.assign_receipt_number(database, transaction_id)
+        points = loyalty.award_points(database, transaction_id)
+        database.commit()
+    except Exception:
+        database.rollback()
+        raise
+
+    try:
+        emailed = receipts.send_receipt_email(database, transaction_id)
+    except Exception:
+        emailed = False
+    message = f"Checkout complete. Receipt {receipt_number}."
+    if customer_id is not None:
+        message += f" You earned {points} point(s)."
+    if emailed:
+        message += " The receipt was emailed."
+    flash(message, "success")
+
+    if customer_id is not None:
+        return redirect(url_for("account.receipt", transaction_id=transaction_id))
+    return redirect(url_for("checkout"))

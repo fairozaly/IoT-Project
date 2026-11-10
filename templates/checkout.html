@@ -14,6 +14,9 @@
     <p id="resultText" role="status" aria-live="polite">Ready to scan.</p>
     <div id="cart"></div>
     <p id="cart-total">Total: $0.00</p>
+    <form method="post" action="{{ url_for('cart.complete_checkout') }}">
+        <button type="submit" class="btn btn-primary">Complete checkout</button>
+    </form>
     <button id="clear-cart" type="button">Clear cart</button>
 </section>
 <script src="{{ url_for('static', filename='js/checkout.js') }}" defer></script>
