@@ -1,20 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Self-checkout{% endblock %}
-{% block header_title %}Self-checkout{% endblock %}
+{% block title %}Self-Checkout{% endblock %}
+{% block header_title %}Self-Checkout{% endblock %}
+{% block body_class %}checkout-page{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">{% endblock %}
 {% block content %}
-<section class="page-section">
-    <h1>Self-checkout</h1>
-    <form id="barcode-form">
-        <label for="barcode">Product barcode</label>
-        <input id="barcode" name="barcode" type="text" maxlength="13"
-               autocomplete="off" autofocus required>
-        <button type="submit">Add item</button>
-    </form>
-    <p>Scan a barcode with your barcode scanner, or enter it and press Enter.</p>
-    <p id="resultText" role="status" aria-live="polite">Ready to scan.</p>
-    <div id="cart"></div>
-    <p id="cart-total">Total: $0.00</p>
-    <button id="clear-cart" type="button">Clear cart</button>
-</section>
-<script src="{{ url_for('static', filename='js/checkout.js') }}" defer></script>
+<div class="sc-shell" id="selfCheckout" data-member="{{ 'true' if session.get('customer_id') else 'false' }}">
+  <header class="sc-heading"><div><p class="sc-eyebrow">SMART STORE / SELF-SERVICE</p><h1>Self-Checkout</h1><p>Place your RFID-tagged products near the reader to begin.</p></div><span class="sc-session"><span class="sc-live-dot"></span> Checkout session</span></header>
+  <div class="sc-steps" aria-label="Checkout progress"><span class="sc-step is-active" data-step="1"><b>1</b> Scan items</span><span class="sc-step" data-step="2"><b>2</b> Membership</span><span class="sc-step" data-step="3"><b>3</b> Review</span><span class="sc-step" data-step="4"><b>4</b> Payment</span></div>
+  <div class="sc-layout">
+    <div class="sc-left">
+      <section class="sc-panel sc-scanner" aria-labelledby="scScanTitle"><div class="sc-panel-title"><div><h2 id="scScanTitle">RFID Product Scanner</h2><p>All tags detected in a single scan are processed together.</p></div><span id="scReaderBadge" class="sc-pill">Not connected</span></div>
+      <div class="sc-scan-zone"><div class="sc-scan-illustration" aria-hidden="true"><svg viewBox="0 0 100 100"><rect x="23" y="27" width="54" height="46" rx="9" fill="none" stroke="currentColor" stroke-width="3"/><path d="M38 40v20m7-20v20m8-20v20m7-20v20M13 22V13h9m56 0h9v9M13 78v9h9m56 0h9v-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></div><h3 id="scScanHeadline">Ready to scan</h3><p id="scScanCaption">Start the reader, then place your products in its detection area.</p><div class="sc-scan-actions"><button class="sc-btn sc-btn-primary" type="button" id="scToggleScan">Start scanning</button><button class="sc-btn sc-btn-soft" type="button" id="scScanOnce">Scan once</button></div><p class="sc-helper">Reader is connected to the computer running Flask. Scan results appear here automatically.</p></div>
+      <div class="sc-event-row"><span id="scLastScan">No tags detected yet</span><span id="scScanCount">0 unique tags</span></div>
+      <div id="scNotice" class="sc-notice" role="status" aria-live="polite" hidden></div>
+      </section>
+      <section class="sc-panel sc-basket" aria-labelledby="scBasketTitle"><div class="sc-panel-title"><div><h2 id="scBasketTitle">Shopping List <span class="sc-count" id="scItemsCount">0</span></h2><p>Update quantities or remove items before paying.</p></div><button type="button" class="sc-link" id="scClearCart">Clear cart</button></div><div id="scCartItems" class="sc-cart-items"><div class="sc-empty"><div class="sc-empty-icon">🛒</div><strong>Your basket is empty</strong><p>Scan products to see them here.</p></div></div></section>
+    </div>
+    <div class="sc-right"><section class="sc-panel sc-summary"><div class="sc-panel-title"><div><h2>Order Summary</h2><p>Live total from your store inventory</p></div></div><div class="sc-summary-line"><span>Items</span><strong id="scQuantity">0</strong></div><div class="sc-summary-line"><span>Subtotal</span><strong id="scSubtotal">$0.00</strong></div><div class="sc-summary-total"><span>Total</span><strong id="scTotal">$0.00</strong></div><p class="sc-small">Prices are provided by the server. Any applicable taxes must be configured in the backend.</p><button class="sc-btn sc-btn-primary sc-full" type="button" id="scNext" disabled>Continue to membership</button></section>
+    <section class="sc-panel sc-flow" id="scMemberSection"><div class="sc-panel-title"><div><h2>Membership</h2><p>Optional loyalty program</p></div></div><div class="sc-member-status" id="scMemberStatus">{% if session.get('customer_id') %}<span class="sc-member-icon">✓</span><span><strong>Member account connected</strong><small>Eligible to earn loyalty points after purchase.</small></span>{% else %}<span class="sc-member-icon">★</span><span><strong>Continue as guest</strong><small>Sign in with your registered customer account to earn points.</small></span>{% endif %}</div><div class="sc-member-actions"><button type="button" class="sc-btn sc-btn-soft" id="scMembershipContinue">{% if session.get('customer_id') %}Use membership{% else %}Skip membership{% endif %}</button></div><p class="sc-small">Physical membership-card identification requires a backend lookup route; this page does not pretend to read a card.</p></section>
+    <section class="sc-panel sc-flow" id="scPaymentSection"><div class="sc-panel-title"><div><h2>Payment Simulation</h2><p>Review your order before completing</p></div></div><div class="sc-pay-box"><span class="sc-pay-icon">▣</span><span><strong>Simulated card payment</strong><small>No card information is collected.</small></span></div><label class="sc-confirm"><input type="checkbox" id="scConfirm" disabled><span>I confirm that all items and quantities are correct.</span></label><form method="post" action="{{ url_for('cart.complete_checkout') }}" id="scPaymentForm"><button class="sc-btn sc-btn-primary sc-full" id="scPay" type="submit" disabled>Confirm simulated payment</button></form><p class="sc-small">This performs a real transaction in the project database: inventory is deducted, points are awarded to eligible members, and receipt email is attempted.</p></section></div>
+  </div>
+</div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/checkout.js') }}" defer></script>{% endblock %}
