@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create customer account · Smart Store</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <main class="auth-page">
+    <section class="auth-card">
+      <h1>Create customer account</h1>
+      <p>Create an account to earn loyalty points and see your purchase history and receipts.</p>
+      {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+      <form method="post">
+        <label for="first_name">First name</label>
+        <input id="first_name" name="first_name" type="text" autocomplete="given-name" required maxlength="100" value="{{ request.form.get('first_name', '') }}">
+        <label for="last_name">Last name</label>
+        <input id="last_name" name="last_name" type="text" autocomplete="family-name" required maxlength="100" value="{{ request.form.get('last_name', '') }}">
+        <label for="address">Address</label>
+        <input id="address" name="address" type="text" autocomplete="street-address" required maxlength="200" value="{{ request.form.get('address', '') }}">
+        <label for="phone">Phone (optional)</label>
+        <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="30" value="{{ request.form.get('phone', '') }}">
+        <label for="email">Email</label>
+        <input id="email" type="email" name="email" autocomplete="email" required maxlength="254" value="{{ request.form.get('email', '') }}">
+        <label for="password">Password</label>
+        <input id="password" type="password" name="password" autocomplete="new-password" required minlength="8">
+        <button type="submit">Create customer account</button>
+      </form>
+      <p>Already have an account? <a href="{{ url_for('auth.signin') }}">Sign in</a></p>
+    </section>
+  </main>
+</body>
+</html>
