@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}My account{% endblock %}
+{% block header_title %}My account{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">CUSTOMER ACCOUNT</p>
+      <h1>Hello, {{ customer['first_name'] }}</h1>
+      <p class="subhead">Your membership, loyalty points and purchase history.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('checkout') }}">Go to self-checkout</a>
+  </div>
+
+  <div class="section-panel">
+    <div class="section-heading"><div class="section-title"><h2>Membership</h2></div></div>
+    <p><strong>Membership number:</strong> {{ customer['membership_number'] }}</p>
+    <p><strong>Loyalty points:</strong> {{ customer['total_points'] }}</p>
+    <p><strong>Email:</strong> {{ customer['email'] or 'No email on file' }}</p>
+    <p><strong>Phone:</strong> {{ customer['phone'] or 'No phone on file' }}</p>
+    <p><strong>Address:</strong> {{ customer['address'] }}</p>
+  </div>
+
+  <div class="section-panel">
+    <div class="section-heading">
+      <div class="section-title"><h2>Purchase history</h2></div>
+      <span class="count-pill">{{ purchases|length }} total</span>
+    </div>
+    {% if purchases %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Receipt</th><th>Date</th><th>Total</th><th>Points earned</th></tr></thead>
+        <tbody>
+          {% for p in purchases %}
+          <tr>
+            <td><a href="{{ url_for('account.receipt', transaction_id=p['transaction_id']) }}">{{ p['receipt_number'] or p['transaction_id'] }}</a></td>
+            <td>{{ p['transaction_date'] | localtime }}</td>
+            <td>${{ '%.2f'|format(p['total_amount']) }}</td>
+            <td>+{{ p['points_earned'] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <h3>No purchases yet</h3>
+      <p>Your receipts will appear here after your first checkout.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

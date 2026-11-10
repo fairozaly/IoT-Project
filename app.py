@@ -27,6 +27,7 @@ from db import (
     register_product_epc,
 )
 
+from account import account
 from auth import init_auth
 from cart import cart
 from fan_control import get_status, init_control, stop_manually
@@ -43,6 +44,7 @@ app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 app.teardown_appcontext(close_connection)
 init_auth(app)
 app.register_blueprint(cart)
+app.register_blueprint(account)
 
 @app.route("/", endpoint="index")
 @app.route("/customers")

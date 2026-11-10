@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Receipt{% endblock %}
+{% block header_title %}Receipt{% endblock %}
+{% block content %}
+{% set t = receipt['transaction'] %}
+<section class="page-section">
+  <div class="page-heading">
+    <div>
+      <a class="back-link" href="{{ url_for('account.overview') }}">← Back to my account</a>
+      <h1>Receipt {{ t['receipt_number'] or t['transaction_id'] }}</h1>
+      <p class="subhead">{{ t['transaction_date'] | localtime }}</p>
+    </div>
+  </div>
+  <div class="section-panel">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead>
+        <tbody>
+          {% for item in receipt['items'] %}
+          <tr>
+            <td>{{ item['name'] }}</td>
+            <td>{{ item['quantity'] }}</td>
+            <td>${{ '%.2f'|format(item['price_at_sale']) }}</td>
+            <td>${{ '%.2f'|format(item['line_total']) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Total: ${{ '%.2f'|format(t['total_amount']) }}</strong></p>
+    <p>Points earned: {{ t['points_earned'] }}</p>
+    <form method="post" action="{{ url_for('account.email_receipt', transaction_id=t['transaction_id']) }}">
+      <button type="submit" class="btn btn-secondary">{{ 'Resend' if t['receipt_email_sent'] else 'Email me' }} this receipt</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
