@@ -1,0 +1,4 @@
+{% extends "signin.html" %}
+{% block title %}Create account{% endblock %}
+{% block password_autocomplete %}new-password{% endblock %}
+{% block switch %}<p>Have an account? <a href="{{ url_for('auth.signin') }}">Sign in</a></p>{% endblock %}

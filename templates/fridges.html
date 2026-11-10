@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Storage Overview | Smart Store{% endblock %}
+{% block body_class %}customers-page fridges-dashboard-page{% endblock %}
+
+{% block content %}
+<section class="fridge-dashboard" aria-label="Storage overview">
+  <div class="fd-heading">
+    <div><div class="fd-eyebrow">STORAGE MONITORING</div><h1>Storage Overview</h1><p>Refrigerator readings update automatically every 3 seconds.</p></div>
+    <a class="btn btn-secondary" href="{{ url_for('storage_history') }}">View history</a>
+    <div class="fd-live"><span class="fd-pulse"></span><span id="fd-update">Waiting for readings</span><span id="fanStatus">Fan: unknown</span><button id="stopFan" type="button" class="btn btn-secondary">Stop fan</button></div>
+  </div>
+  <p id="fanApproval" class="fan-approval" role="status"></p>
+  <div id="fanError" class="fd-error" role="alert" hidden></div>
+  <div id="fd-error" class="fd-error" role="alert" hidden></div>
+  <div class="fd-cards" id="fd-cards" aria-live="polite">
+    {% for reading in fridges %}
+    <article class="fd-fridge" data-fridge="{{ reading['name']|e }}">
+      <div class="fd-fridge-head"><div class="fd-name"><span class="fd-icon" aria-hidden="true">▦</span><h2>{{ reading['name'] }}</h2></div><span class="fd-status">DATA AVAILABLE</span></div>
+      <div class="fd-metrics"><div class="fd-metric"><span>Temperature</span><strong>{{ '%.1f'|format(reading['temperature']) }} <small>°C</small></strong></div><div class="fd-metric"><span>Humidity</span><strong>{{ '%.1f'|format(reading['humidity']) }} <small>%</small></strong></div></div>
+      <div class="fd-meta"><span>Fan status</span><strong class="fd-fan-status">Unknown</strong></div>
+    </article>
+    {% else %}
+    <div class="fd-empty">No refrigerator readings yet.</div>
+    {% endfor %}
+  </div>
+
+</section>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/canvas-gauges/gauge.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/fridges.js') }}"></script>
+{% endblock %}

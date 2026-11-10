@@ -1,9 +1,23 @@
 {% extends "base.html" %}
-
 {% block title %}Settings{% endblock %}
-
+{% block header_title %}Settings{% endblock %}
 {% block content %}
-    <div class="heading-row">
-      <h1>Settings</h1>
+<section class="page-section">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">PREFERENCES</p>
+            <h1>Settings</h1>
+            <p class="subhead">Customize your dashboard experience</p>
+        </div>
     </div>
+    <div class="section-panel">
+        <div class="setting-row">
+            <div>
+                <h3>Monitoring preferences</h3>
+                <p>Threshold and sensor configuration require backend support.</p>
+            </div>
+            <span class="setting-tag neutral">to be integrated</span>
+        </div>
+    </div>
+    </section>
 {% endblock %}

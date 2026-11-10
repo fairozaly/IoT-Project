@@ -2,15 +2,17 @@
 #include <PubSubClient.h>
 #include <DHT.h>
 
+#include <string>
 #include <unordered_map>
 
 #define FRIDGE_1_PIN 12
+#define FRIDGE_NAME "Frig2"
 
-#define MQTT_SERVER_ADDRESS "10.0.0.82"
+#define MQTT_SERVER_ADDRESS "10.0.0.237"
 #define MQTT_SERVER_PORT 1883
 
-#define NETWORK_SSID "Penster"
-#define NETWORK_PASSWORD "Greece01"
+#define NETWORK_SSID ""
+#define NETWORK_PASSWORD ""
 
 class state_t {
 public:
@@ -59,7 +61,7 @@ public:
 
 	void reconnect_mqtt() {
 		while (!mqtt_client.connected()) {
-			Serial.println("Attempting MQTT connection...");	
+			Serial.println("Attempting MQTT connection...");
 
 			if (mqtt_client.connect("ESP32")) {
 				Serial.println("Connected");
@@ -70,8 +72,12 @@ public:
 		}
 	}
 
+	void publish(const char* topic, const char* message) {
+		mqtt_client.publish(topic, message);
+	}
+
 private:
-	std::unordered_map<const char*, DHT> fridges;
+	std::unordered_map<std::string, DHT> fridges;
 
 	WiFiClient wifi_client;
 	PubSubClient mqtt_client;
@@ -82,8 +88,7 @@ inline state_t state;
 void setup() {
   	Serial.begin(115200);
 
-    state.add_fridge("Frig1", FRIDGE_1_PIN);
-    // state.add_fridge("Frig2", FRIDGE_2_PIN);
+    state.add_fridge(FRIDGE_NAME, FRIDGE_1_PIN);
 
     state.setup_wifi();
     state.setup_mqtt();
@@ -92,18 +97,18 @@ void setup() {
 void loop() {
 	if (!state.is_connected_mqtt())
 		state.reconnect_mqtt();
-	
+
 	state.loop_mqtt();
 
-	DHT* fridge1 = state.get_fridge("Frig1");
+	DHT* fridge1 = state.get_fridge(FRIDGE_NAME);
 
 	float humidity = fridge1->readHumidity();
 	float temperature = fridge1->readTemperature();
 
 	Serial.printf("Temperature: %.1f\tHumidity: %.1f\n", temperature, humidity);
 
-	// client.publish("esp32/temperature", tempString);
+	std::string payload = std::to_string(humidity) + "," + std::to_string(temperature);
+	state.publish("SmartHome/" FRIDGE_NAME, payload.c_str());
 
-	// client.publish("esp32/humidity", humString);
 	delay(2000);
 }

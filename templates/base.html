@@ -1,35 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Smart Store{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  </head>
-  <body class="{% block body_class %}customers-page{% endblock %}">
-  <nav>
-    <div class="brand">Smart Store</div>
-    <div class="nav-links">
-      <a href="/inventory"{% if active_page == 'inventory' %} class="active"{% endif %}>Inventory</a>
-      <a href="/customers"{% if active_page == 'customers' %} class="active"{% endif %}>Customers</a>
-      <a href="/settings"{% if active_page == 'settings' %} class="active"{% endif %}>Settings</a>
-    </div>
-    <div class="nav-buttons">
-      <button type="button" id="themeToggle" aria-label="Enable dark mode">Dark mode</button>
-    </div>
-  </nav>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Smart Store{% endblock %} ·IoT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block styles %}{% endblock %}
+</head>
+<body class="{% block body_class %}customers-page{% endblock %}">
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('fridges') }}" aria-label="Smart Store, storage overview">
+      <span class="brand-title">{% block header_title %}Storage Overview{% endblock %}</span>
+    </a>
+    <div class="header-actions">
+      {% if session.get('user_id') %}
+      <span class="account-email">{{ session['email'] }}</span>
+      <form method="post" action="{{ url_for('auth.signout') }}">
+        <button class="btn btn-secondary" type="submit">Sign out</button>
+      </form>
+      {% endif %}
+      <button class="header-icon" id="notificationsToggle" type="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 8-3 8-3 10h18c0-2-3-2-3-10M10 21h4"/></svg>
+      </button>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode" title="Switch to light mode">
+        <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/>
+        </svg>
+        <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2 M12 20v2 M2 12h2 M20 12h2 M4.93 4.93l1.42 1.42 M17.65 17.65l1.42 1.42 M4.93 19.07l1.42-1.42 M17.65 6.35l1.42-1.42"/>
+        </svg>
+      </button>
+      <a href="{{ url_for('profile') }}" class="header-icon profile-button" aria-label="View profile" title="Profile">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>
+          </svg>
+      </a>
 
-  <main>
-    {% block content %}{% endblock %}
-  </main>
-  <div class="toast-container" id="toastContainer">
+    </div>
+
+  </header>
+  <aside class="sidebar" aria-label="Primary navigation">
+    <nav class="sidebar-menu">
+      <a class="side-link {% if active_page == 'fridges' %}active{% endif %}" href="{{ url_for('fridges') }}" {% if active_page == 'fridges' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>
+        </span>
+        <span>Dashboard</span>  
+      </a>
+      <a class="side-link {% if active_page == 'storage_history' %}active{% endif %}" href="{{ url_for('storage_history') }}" {% if active_page == 'storage_history' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3v18h18M7 16v-5m5 5V7m5 9v-8"/></svg>
+        </span>
+        <span>Storage History</span>
+      </a>
+      <a class="side-link {% if active_page == 'inventory' %}active{% endif %}" href="{{ url_for('inventory') }}" {% if active_page == 'inventory' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="m12 2 9 5-9 5-9-5zM3 7v10l9 5 9-5V7M12 12v10"/>
+          </svg>
+        </span>
+        <span>Inventory</span>
+      </a>
+      <a class="side-link {% if active_page == 'scan_test' %}active{% endif %}" href="{{ url_for('scan_test') }}" {% if active_page == 'scan_test' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M7 8v8m4-8v8m3-8v8m3-8v8"/>
+          </svg>
+        </span>
+        <span>Scan Testing</span>
+      </a>
+      <a class="side-link {% if active_page == 'customers' %}active{% endif %}" href="{{ url_for('customers') }}" {% if active_page == 'customers' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/>
+          </svg>
+        </span>
+        <span>Users</span>
+      </a>
+      <a class="side-link {% if active_page == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}" {% if active_page == 'settings' %}aria-current="page"{% endif %}>
+        <span class="side-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19 13a7 7 0 0 0 0-2l2-1.5-2-3.5-2.5 1a7 7 0 0 0-1.8-1L14.2 3H9.8l-.5 3a7 7 0 0 0-1.8 1L5 6 3 9.5 5 11a7 7 0 0 0 0 2l-2 1.5L5 18l2.5-1a7 7 0 0 0 1.8 1l.5 3h4.4l.5-3a7 7 0 0 0 1.8-1l2.5 1 2-3.5z"/>
+          </svg>
+        </span>
+        <span>Settings</span>
+      </a>
+    </nav>
+  </aside>
+  <main class="app-main" id="main-content">{% block content %}{% endblock %}</main>
+  <div class="toast-container" id="toastContainer" aria-live="polite">
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-      <div class="toast {{ category }}">{{ message }}</div>
-      {% endfor %}
+      {% for category, message in messages %}<div class="toast {{ category }}">{{ message }}</div>{% endfor %}
     {% endwith %}
   </div>
   <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <script src="{{ url_for('static', filename='js/toasts.js') }}"></script>
-  </body>
+  <script src="{{ url_for('static', filename='js/layout.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
 </html>
