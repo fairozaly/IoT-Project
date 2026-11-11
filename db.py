@@ -66,7 +66,7 @@ def get_product(product_id):
 
     cur = db.execute(
         "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
-        "price, quantity, company "
+        "price, quantity, company, image_url "
         "FROM Products WHERE product_id = ?",
         (product_id,),
     )
@@ -78,7 +78,7 @@ def get_product_by_barcode(barcode):
 
     cur = db.execute(
         "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
-        "price, quantity, company "
+        "price, quantity, company, image_url "
         "FROM Products WHERE upc = ?",
         (barcode,),
     )
@@ -89,7 +89,7 @@ def get_products():
     db = get_db()
     return db.execute(
         "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
-        "price, quantity, company, "
+        "price, quantity, company, image_url, "
         "(SELECT COUNT(*) FROM ProductTags t WHERE t.product_id = Products.product_id) AS tag_count "
         "FROM Products ORDER BY name"
     ).fetchall()
@@ -115,14 +115,15 @@ def add_product(
     company=None,
     category="Uncategorized",
     upc=None,
+    image_url=None,
 ):
     upc = upc or barcode
     db = get_db()
     db.execute(
         "INSERT INTO Products "
-        "(name, category, upc, SDK, price, quantity, company) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (name, category, upc, SDK, price, quantity, company),
+        "(name, category, upc, SDK, price, quantity, company, image_url) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, category, upc, SDK, price, quantity, company, image_url),
     )
     db.commit()
 
@@ -137,6 +138,7 @@ def edit_product(
     company=None,
     category=None,
     upc=None,
+    image_url=None,
 ):
     existing = get_product(product_id)
     if existing is None:
@@ -150,6 +152,7 @@ def edit_product(
     price = existing["price"] if price is None else price
     quantity = existing["quantity"] if quantity is None else quantity
     company = existing["company"] if company is None else company
+    image_url = existing["image_url"] if image_url is None else image_url
 
     # Allows us to use this method to increase or decrease quantity as well
     if isinstance(quantity, str):
@@ -161,8 +164,8 @@ def edit_product(
     db = get_db()
     db.execute(
         "UPDATE Products SET name = ?, category = ?, upc = ?, SDK = ?, "
-        "price = ?, quantity = ?, company = ? WHERE product_id = ?",
-        (name, category, upc, SDK, price, quantity, company, product_id),
+        "price = ?, quantity = ?, company = ?, image_url = ? WHERE product_id = ?",
+        (name, category, upc, SDK, price, quantity, company, image_url, product_id),
     )
     db.commit()
     return True
@@ -175,10 +178,15 @@ def get_product_tags(product_id):
     ).fetchall()
 
 
-def register_product_epc(product_id, epc):
-    epc = epc.strip().upper()
+def normalize_epc(epc):
+    epc = (epc or "").strip().upper()
     if not re.fullmatch(r"(?:[0-9A-F]{2}){1,12}", epc):
         raise ValueError("EPC must contain an even number of hexadecimal characters (2–24).")
+    return epc
+
+
+def register_product_epc(product_id, epc):
+    epc = normalize_epc(epc)
     database = get_db()
     try:
         database.execute(
@@ -202,12 +210,120 @@ def get_product_by_epc(epc):
 
 def delete_product_tag(product_id, tag_id):
     database = get_db()
-    result = database.execute(
-        "DELETE FROM ProductTags WHERE product_id = ? AND tag_id = ?",
-        (product_id, tag_id),
-    )
-    database.commit()
+    try:
+        database.execute("BEGIN IMMEDIATE")
+        row = database.execute(
+            "SELECT (SELECT quantity FROM Products WHERE product_id = ?) AS quantity, "
+            "COUNT(*) AS tags FROM ProductTags WHERE product_id = ?",
+            (product_id, product_id),
+        ).fetchone()
+        result = database.execute(
+            "DELETE FROM ProductTags WHERE product_id = ? AND tag_id = ?",
+            (product_id, tag_id),
+        )
+        if result.rowcount and row["quantity"] >= row["tags"]:
+            database.execute(
+                "UPDATE Products SET quantity = MAX(quantity - 1, 0) "
+                "WHERE product_id = ?", (product_id,),
+            )
+        database.commit()
+    except Exception:
+        database.rollback()
+        raise
     return result.rowcount > 0
+
+
+def receive_scanned_tag(product_id, epc, supplier=None):
+    epc = normalize_epc(epc)
+    database = get_db()
+    try:
+        database.execute("BEGIN IMMEDIATE")
+        product = database.execute(
+            "SELECT quantity FROM Products WHERE product_id = ?", (product_id,)
+        ).fetchone()
+        if product is None:
+            database.rollback()
+            return {"status": "missing_product", "epc": epc}
+        existing = database.execute(
+            "SELECT product_id FROM ProductTags WHERE epc = ?", (epc,)
+        ).fetchone()
+        if existing is not None:
+            database.rollback()
+            status = "already_registered" if existing["product_id"] == product_id else "conflict"
+            return {"status": status, "epc": epc}
+        database.execute(
+            "INSERT INTO ProductTags (product_id, epc) VALUES (?, ?)",
+            (product_id, epc),
+        )
+        database.execute(
+            "INSERT INTO ProductReceptions "
+            "(product_id, quantity_received, supplier) VALUES (?, 1, ?)",
+            (product_id, supplier),
+        )
+        database.execute(
+            "UPDATE Products SET quantity = quantity + 1 WHERE product_id = ?",
+            (product_id,),
+        )
+        database.commit()
+    except Exception:
+        database.rollback()
+        raise
+    return {"status": "received", "epc": epc, "quantity": product["quantity"] + 1}
+
+
+def receive_scanned_tags(product_id, epcs, supplier=None):
+    epcs = list(dict.fromkeys(normalize_epc(epc) for epc in epcs))
+    database = get_db()
+    try:
+        database.execute("BEGIN IMMEDIATE")
+        product = database.execute(
+            "SELECT quantity FROM Products WHERE product_id = ?", (product_id,)
+        ).fetchone()
+        if product is None:
+            database.rollback()
+            return {"status": "missing_product", "received": []}
+        placeholders = ",".join("?" for _ in epcs)
+        existing = {
+            row["epc"]: row["product_id"]
+            for row in database.execute(
+                f"SELECT epc, product_id FROM ProductTags WHERE epc IN ({placeholders})",
+                epcs,
+            )
+        }
+        received = [epc for epc in epcs if epc not in existing]
+        already_registered = [
+            epc for epc in epcs if existing.get(epc) == product_id
+        ]
+        conflicts = [
+            epc for epc in epcs
+            if epc in existing and existing[epc] != product_id
+        ]
+        if received:
+            database.executemany(
+                "INSERT INTO ProductTags (product_id, epc) VALUES (?, ?)",
+                [(product_id, epc) for epc in received],
+            )
+            database.execute(
+                "INSERT INTO ProductReceptions "
+                "(product_id, quantity_received, supplier) VALUES (?, ?, ?)",
+                (product_id, len(received), supplier),
+            )
+            database.execute(
+                "UPDATE Products SET quantity = quantity + ? WHERE product_id = ?",
+                (len(received), product_id),
+            )
+        database.commit()
+    except Exception:
+        database.rollback()
+        raise
+    return {
+        "status": "received" if received else "no_new_tags",
+        "received": received,
+        "already_registered": already_registered,
+        "conflicts": conflicts,
+        "count": len(received),
+        "quantity": product["quantity"] + len(received),
+    }
 
 
 def add_product_reception(product_id, quantity_received, supplier=None):
@@ -235,6 +351,37 @@ def get_product_receptions(limit=20):
         (limit,),
     ).fetchall()
 
+
+
+def update_customer_membership(customer_id, membership_number):
+    membership_number = (membership_number or "").strip().upper()
+    db = get_db()
+    result = db.execute(
+        "UPDATE Customers SET membership_number = ? WHERE customer_id = ?",
+        (membership_number, customer_id),
+    )
+    db.commit()
+    return result.rowcount > 0
+
+
+def get_customer(customer_id):
+    if customer_id is None:
+        return None
+    return get_db().execute(
+        "SELECT customer_id, first_name, last_name, address, phone, email, "
+        "membership_number, total_points FROM Customers WHERE customer_id = ?",
+        (customer_id,),
+    ).fetchone()
+
+
+def get_customer_by_membership_number(membership_number):
+    if not membership_number:
+        return None
+    return get_db().execute(
+        "SELECT customer_id, first_name, last_name, email, membership_number, total_points "
+        "FROM Customers WHERE UPPER(membership_number) = ?",
+        (membership_number.strip().upper(),),
+    ).fetchone()
 
 
 def get_customer_by_email(email):
@@ -375,6 +522,36 @@ def migrate_sensor_thresholds(db):
     db.execute("ALTER TABLE Sensors DROP COLUMN humid_max")
 
 
+def migrate_stock_to_tags(database):
+    if database.execute(
+        "SELECT 1 FROM AppSettings WHERE name = 'stock_tags_reconciled'"
+    ).fetchone():
+        return
+    database.execute(
+        "UPDATE Products SET quantity = ("
+        "SELECT COUNT(*) FROM ProductTags t "
+        "WHERE t.product_id = Products.product_id)"
+    )
+    database.execute(
+        "INSERT INTO AppSettings (name, value) VALUES ('stock_tags_reconciled', '1')"
+    )
+
+
+def migrate_product_images(database):
+    columns = {row["name"] for row in database.execute("PRAGMA table_info(Products)")}
+    if "image_url" in columns:
+        return
+    database.execute("ALTER TABLE Products ADD COLUMN image_url TEXT")
+    defaults = {
+        "Pepsi": "/static/images/products/pepsi.jpg",
+        "Water Bottle": "/static/images/products/water-bottle.jpg",
+    }
+    for name, image_url in defaults.items():
+        database.execute(
+            "UPDATE Products SET image_url = ? WHERE name = ?", (image_url, name)
+        )
+
+
 def migrate_product_tags(database):
     """Move legacy product EPCs without changing IDs or dependent records."""
     columns = {row["name"] for row in database.execute("PRAGMA table_info(Products)")}
@@ -430,6 +607,8 @@ def init_db(app):
         with app.open_resource("db/schema.sql", mode="r") as f:
             db.cursor().executescript(f.read())
         migrate_product_tags(db)
+        migrate_product_images(db)
+        migrate_stock_to_tags(db)
         migrate_sensor_thresholds(db)
         db.commit()
 

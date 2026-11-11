@@ -39,7 +39,7 @@
           <div><dt>RFID tags:</dt><dd>{{ product['tag_count'] or 0 }} registered</dd></div>
           <div><dt>UPC:</dt><dd>{{ product['upc'] or '—' }}</dd></div>
         </dl>
-        <div class="product-image-placeholder" aria-label="No product image available"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 18 5-5 4 3 4-5 4 5"/></svg></div>
+        {% if product['image_url'] %}<img class="product-image" src="{{ product['image_url'] }}" alt="{{ product['name'] }}" loading="lazy">{% else %}<div class="product-image-placeholder" aria-label="No product image available"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 18 5-5 4 3 4-5 4 5"/></svg></div>{% endif %}
       </div>
       <div class="product-tile-actions">
         <a href="{{ url_for('product_detail', product_id=product['product_id']) }}">View / EPC</a>
@@ -55,6 +55,19 @@
   {% endif %}
 
   <div class="inventory-extras">
+    <section class="inventory-extra-card" aria-labelledby="rfid-receive-heading">
+      <div class="inventory-extra-heading"><h2 id="rfid-receive-heading">Receive with RFID</h2><span id="receive-reader-status" class="sc-pill">Not connected</span></div>
+      {% if products %}
+      <p>Select the product, then scan each new RFID tag. Every newly registered tag adds one unit to stock.</p>
+      <form id="rfid-receive-form" class="products-receive-form">
+        <label>Product <select id="receive-product" required><option value="">Select a product</option>{% for product in products %}<option value="{{ product['product_id'] }}">{{ product['name'] }} — {{ product['upc'] }}</option>{% endfor %}</select></label>
+        <label>Supplier (optional) <input id="receive-supplier" type="text" placeholder="Supplier name"></label>
+        <div class="receive-scan-actions"><span class="sc-pill online">Scanning automatically</span><span id="receive-count">0 tags received</span></div>
+      </form>
+      <p id="receive-message" class="sc-validation" role="status" aria-live="polite"></p>
+      <ul id="receive-tags" class="receive-tags"></ul>
+      {% else %}<p>Add a product before receiving stock.</p>{% endif %}
+    </section>
     <section class="inventory-extra-card" aria-labelledby="receive-heading">
       <div class="inventory-extra-heading"><h2 id="receive-heading">Receive stock</h2></div>
       {% if products %}
@@ -73,4 +86,4 @@
   </div>
 </section>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/products.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/products.js') }}" defer></script><script src="{{ url_for('static', filename='js/receive.js') }}" defer></script>{% endblock %}

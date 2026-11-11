@@ -129,7 +129,7 @@ def init_auth(app):
             customer_pages = ["account.overview", "account.receipt", "account.email_receipt",
                                 "checkout", "cart.current_cart", "cart.add_item",
                                 "cart.update_item", "cart.complete_checkout",
-                                "auth.signout"]
+                                "cart.scan_tags", "cart.membership", "auth.signout"]
             if request.endpoint not in customer_pages:
                 if request.path.startswith("/api/") or request.path == "/alerts":
                     return jsonify({"error": "Not allowed for customer accounts."}), 403

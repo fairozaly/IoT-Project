@@ -2,7 +2,7 @@ import os
 import secrets
 import sqlite3
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
+from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
 
 from db import (
     add_customer,
@@ -12,6 +12,7 @@ from db import (
     delete_product,
     delete_product_tag,
     edit_product,
+    get_customer,
     get_customer_by_email,
     get_customer_by_phone,
     get_customers,
@@ -24,7 +25,9 @@ from db import (
     get_products,
     init_db,
     mark_alerts_sent,
+    receive_scanned_tags,
     register_product_epc,
+    update_customer_membership,
 )
 
 from account import account
@@ -37,7 +40,6 @@ from fan import stop_fan
 
 from mqtt import setup_mqtt
 import tag_reader
-from serial import SerialException
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
@@ -50,6 +52,33 @@ app.register_blueprint(account)
 @app.route("/customers")
 def customers():
     return render_template("customers.html", customers=get_customers(), active_page="customers")
+
+@app.route("/customers/<int:customer_id>/edit", methods=["GET", "POST"])
+def edit_customer(customer_id):
+    customer = get_customer(customer_id)
+    if customer is None:
+        abort(404)
+    if request.method == "POST":
+        membership_number = request.form.get("membership_number", "").strip().upper()
+        if not membership_number:
+            flash("Membership number is required.", "error")
+            indicate_failure()
+            return render_template("customer_edit.html", customer=customer, active_page="customers")
+        if len(membership_number) > 64:
+            flash("Membership number must be 64 characters or fewer.", "error")
+            indicate_failure()
+            return render_template("customer_edit.html", customer=customer, active_page="customers")
+        try:
+            update_customer_membership(customer_id, membership_number)
+        except sqlite3.IntegrityError:
+            flash("That membership number is already used by another customer.", "error")
+            indicate_failure()
+            return render_template("customer_edit.html", customer=customer, active_page="customers")
+        flash(f"Membership number updated for {customer['first_name']} {customer['last_name']}.", "success")
+        indicate_success()
+        return redirect(url_for("customers"))
+    return render_template("customer_edit.html", customer=customer, active_page="customers")
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -144,6 +173,7 @@ def new_product():
         upc = values.get("upc", "").strip()
         company = values.get("company", "").strip()
         sdk = values.get("SDK", "").strip() or None
+        image_url = values.get("image_url", "").strip() or None
         price_text = values.get("price", "").strip()
 
         errors = []
@@ -185,6 +215,7 @@ def new_product():
                 price=price,
                 quantity=0,
                 company=company,
+                image_url=image_url,
             )
         except sqlite3.IntegrityError:
             flash("UPC or SDK is already used by another product.", "error")
@@ -203,12 +234,55 @@ def new_product():
     )
 
 
+@app.get("/api/rfid/tags")
+def rfid_tags():
+    if app.config.get("START_SERVICES", True):
+        tag_reader.ensure_started()
+    return jsonify(
+        connected=tag_reader.is_connected(),
+        error=tag_reader.get_last_error(),
+        tags=tag_reader.get_tags(),
+    )
+
+
+@app.post("/api/inventory/receive/scan")
+def receive_scanned_stock():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="Send a JSON object."), 400
+    product_id = data.get("product_id")
+    epcs = data.get("epcs")
+    if epcs is None:
+        epcs = [data.get("epc")]
+    supplier = data.get("supplier")
+    if type(product_id) is not int or product_id <= 0:
+        return jsonify(error="Select a valid product."), 400
+    if not isinstance(epcs, list) or not epcs or not all(
+        isinstance(epc, str) and epc.strip() for epc in epcs
+    ):
+        return jsonify(error="At least one EPC is required."), 400
+    if supplier is not None and not isinstance(supplier, str):
+        return jsonify(error="Invalid supplier."), 400
+    supplier = (supplier or "").strip() or None
+    try:
+        result = receive_scanned_tags(product_id, epcs, supplier)
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    if result["status"] == "missing_product":
+        return jsonify(error="Product not found."), 404
+    return jsonify(result)
+
+
 @app.post("/api/scan-test/read")
 def read_test_tags():
-    try:
-        epcs = tag_reader.scan()
-    except (SerialException, OSError):
-        return jsonify(error="Reader unavailable. Check its USB connection and close any other tag reader script."), 503
+    if app.config.get("START_SERVICES", True):
+        tag_reader.ensure_started()
+    if not tag_reader.is_connected():
+        error = tag_reader.get_last_error()
+        if error:
+            return jsonify(error="Reader unavailable. Check its USB connection and close any other tag reader script."), 503
+        return jsonify(results=[], connected=False)
+    epcs = tag_reader.get_tags()
     results = []
     for epc in epcs:
         product = get_product_by_epc(epc)
@@ -222,7 +296,7 @@ def read_test_tags():
             "status": status,
             "product": product_data,
         })
-    return jsonify(results=results)
+    return jsonify(results=results, connected=True)
 
 
 @app.route("/scan-test")
@@ -244,6 +318,7 @@ def edit_product_page(product_id):
         upc = values.get("upc", "").strip()
         company = values.get("company", "").strip()
         sdk = values.get("SDK", "").strip() or None
+        image_url = values.get("image_url", "").strip() or None
         price_text = values.get("price", "").strip()
 
         errors = []
@@ -285,6 +360,7 @@ def edit_product_page(product_id):
                 SDK=sdk,
                 price=price,
                 company=company,
+                image_url=image_url,
             )
         except sqlite3.IntegrityError:
             flash("UPC or SDK is already used by another product.", "error")
@@ -337,7 +413,13 @@ def receive_stock():
 
 @app.route("/checkout")
 def checkout():
-    return render_template("checkout.html", active_page="checkout")
+    session.pop("checkout_customer_id", None)
+    session.pop("checkout_membership_number", None)
+    return render_template(
+        "checkout.html",
+        active_page="checkout",
+        checkout_customer=None,
+    )
 
 
 @app.route("/fridges")
@@ -405,6 +487,7 @@ def create_app(test_config=None):
     init_control(app)
     if app.config["START_SERVICES"]:
         app.extensions["mqtt"] = setup_mqtt(app)
+        tag_reader.start()
     return app
 
 

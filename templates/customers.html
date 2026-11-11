@@ -27,6 +27,8 @@
           <p>{{ customer['email'] or 'No email provided' }}</p>
           <p>{{ customer['phone'] or 'No phone provided' }}</p>
           <p class="customer-address">{{ customer['address'] }}</p>
+          <p><strong>Membership:</strong> {{ customer['membership_number'] }}</p>
+          <a class="btn btn-secondary customer-edit" href="{{ url_for('edit_customer', customer_id=customer['customer_id']) }}">Edit membership</a>
         </div>
       </article>
       {% else %}<div class="empty-state">
