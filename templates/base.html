@@ -16,6 +16,14 @@
       <span class="brand-title">{% block header_title %}Storage Overview{% endblock %}</span>
     </a>
     <div class="header-actions">
+      <div class="language-switcher" role="group" aria-label="Language / Langue">
+        <button type="button" data-language-choice="en" aria-pressed="true">
+          EN
+        </button>
+        <button type="button" data-language-choice="fr" aria-pressed="false">
+          FR
+        </button>
+      </div>
       {% if session.get('user_id') %}
       <span class="account-email">{{ session['email'] }}</span>
       <form method="post" action="{{ url_for('auth.signout') }}">
@@ -117,6 +125,7 @@
   <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <script src="{{ url_for('static', filename='js/toasts.js') }}"></script>
   <script src="{{ url_for('static', filename='js/layout.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/i18n.js')}}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
