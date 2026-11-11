@@ -2675,4 +2675,51 @@ body.dark-mode.checkout-page {
     }
 }
 
+/*i18n*/
+.language-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--border, #dce6ef);
+    border-radius: 9px;
+    background: var(--card-bg, rgba(120, 140, 160, .08));
+    flex-shrink: 0;
+}
+
+.language-switcher button {
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    padding: 6px 9px;
+    font: 600 12px/1.2 Inter, sans-serif;
+    cursor: pointer;
+}
+
+.language-switcher button.active {
+    background: #137bbf;
+    color: #fff;
+}
+
+.language-switcher button:focus-visible {
+    outline: 2px solid #259adf;
+    outline-offset: 2px;
+}
+
+body.dark-mode .language-switcher {
+    border-color: #344454;
+    background: #172330;
+}
+
+@media (max-width: 650px) {
+    .language-switcher button {
+        padding: 5px 6px;
+    }
+
+    .language-switcher {
+        margin-left: 2px;
+    }
+}
+
 
