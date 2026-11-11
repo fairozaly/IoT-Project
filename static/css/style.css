@@ -2684,9 +2684,15 @@ body.dark-mode .product-detail-media {
     background: #fff;
 }
 
-.customer-edit {
+.customer-actions {
     margin-top: 12px;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.customer-actions form {
+    margin: 0;
 }
 
 .sc-member-form[hidden] {

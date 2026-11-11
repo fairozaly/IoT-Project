@@ -9,6 +9,7 @@ from db import (
     add_product,
     add_product_reception,
     close_connection,
+    delete_customer,
     delete_product,
     delete_product_tag,
     edit_product,
@@ -78,6 +79,26 @@ def edit_customer(customer_id):
         indicate_success()
         return redirect(url_for("customers"))
     return render_template("customer_edit.html", customer=customer, active_page="customers")
+
+
+@app.post("/customers/<int:customer_id>/delete")
+def remove_customer(customer_id):
+    customer = get_customer(customer_id)
+    if customer is None:
+        flash("Customer not found.", "error")
+    elif delete_customer(customer_id):
+        flash(
+            f"Customer {customer['first_name']} {customer['last_name']} deleted successfully.",
+            "success",
+        )
+        indicate_success()
+    else:
+        flash(
+            "Customer cannot be deleted because they have transaction history.",
+            "error",
+        )
+        indicate_failure()
+    return redirect(url_for("customers"))
 
 
 @app.route("/register", methods=["GET", "POST"])

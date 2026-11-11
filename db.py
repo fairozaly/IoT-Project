@@ -43,6 +43,19 @@ def generate_membership_number(db):
             return membership_number
 
 
+def delete_customer(customer_id):
+    db = get_db()
+    try:
+        result = db.execute(
+            "DELETE FROM Customers WHERE customer_id = ?", (customer_id,)
+        )
+        db.commit()
+        return result.rowcount > 0
+    except sqlite3.IntegrityError:
+        db.rollback()
+        return False
+
+
 def add_customer(first_name, last_name, address, phone=None, email=None):
     db = get_db()
     db.execute(
