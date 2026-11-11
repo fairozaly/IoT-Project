@@ -24,9 +24,16 @@
         <div class="customer-avatar">{{ customer['first_name'][:1]|upper }}{{ customer['last_name'][:1]|upper }}</div>
         <div class="customer-info">
           <h3>{{ customer['first_name'] }} {{ customer['last_name'] }}</h3>
+          <p>ID: {{ customer['customer_id'] }}</p>
           <p>{{ customer['email'] or 'No email provided' }}</p>
           <p>{{ customer['phone'] or 'No phone provided' }}</p>
           <p class="customer-address">{{ customer['address'] }}</p>
+        </div>
+        <div class="customer-actions">
+          <a class="btn btn-secondary"
+            href="{{ url_for('edit_customer', customer_id=customer['customer_id']) }}">
+              Edit
+          </a>
         </div>
       </article>
       {% else %}<div class="empty-state">

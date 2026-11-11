@@ -60,6 +60,32 @@ def add_customer(first_name, last_name, address, phone=None, email=None):
     )
     db.commit()
 
+def update_customer(
+    customer_id,
+    first_name=None,
+    last_name=None,
+    address=None,
+    phone=None,
+    email=None,
+):
+    existing = get_customer_by_id(customer_id)
+    if existing is None:
+        return False
+
+    first_name = existing["first_name"] if first_name is None else first_name
+    last_name = existing["last_name"] if last_name is None else last_name
+    address = existing["address"] if address is None else address
+    phone = existing["phone"] if phone is None else phone
+    email = existing["email"] if email is None else email
+
+    db = get_db()
+    db.execute(
+        "UPDATE Customers SET first_name = ?, last_name = ?, address = ?, phone = ?, email = ? WHERE customer_id = ?",
+        (first_name, last_name, address, phone, email, customer_id),
+    )
+    db.commit()
+    return True
+
 # PRODUCT METHODS
 def get_product(product_id):
     db = get_db()
@@ -242,6 +268,17 @@ def get_customer_by_email(email):
         return None
     db = get_db()
     return db.execute("SELECT customer_id FROM Customers WHERE email = ?", (email,)).fetchone()
+
+
+def get_customer_by_id(customer_id):
+    db = get_db()
+
+    cur = db.execute(
+        "SELECT customer_id, first_name, last_name, email, phone, address "
+        "FROM Customers WHERE customer_id = ?",
+        (customer_id,),
+    )
+    return cur.fetchone()
 
 
 def get_customer_by_phone(phone):

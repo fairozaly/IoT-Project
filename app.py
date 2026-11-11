@@ -12,8 +12,10 @@ from db import (
     delete_product,
     delete_product_tag,
     edit_product,
+    update_customer,
     get_customer_by_email,
     get_customer_by_phone,
+    get_customer_by_id,
     get_customers,
     get_latest_readings,
     get_pending_alerts,
@@ -407,7 +409,72 @@ def create_app(test_config=None):
         app.extensions["mqtt"] = setup_mqtt(app)
     return app
 
+@app.route("/edit_customer/<int:customer_id>", methods=["GET", "POST"])
+def edit_customer(customer_id):
 
+    customer = get_customer_by_id(customer_id)
+    if customer is None:
+        flash("Customer not found.", "error")
+        return redirect(url_for("customers"))
+
+    if request.method == "POST":
+        values = request.form.to_dict()
+        first_name = values.get("first_name")
+        last_name = values.get("last_name")
+        email = values.get("email")
+        phone = values.get("phone")
+        address = values.get("address")
+
+        errors = []
+        if not first_name:
+            errors.append("First name is required.")
+        if not last_name:
+            errors.append("Last name is required.")
+        if not email:
+            errors.append("Email is required.")
+        if not phone:
+            errors.append("Phone is required.")
+        if not address:
+            errors.append("Address is required.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return render_template(
+                "edit_customer.html",
+                customer=values,
+                customer_id=customer_id,
+                active_page="customers",
+            )
+
+        try:
+            update_customer(
+                customer_id,
+                first_name=first_name,
+                last_name=last_name,
+                address=address,
+                phone=phone,
+                email=email,
+            )
+
+        except sqlite3.IntegrityError:
+            flash("Customer data is already used by another customer.", "error")
+            return render_template(
+                "edit_customer.html",
+                customer=values,
+                customer_id=customer_id,
+                active_page="customers",
+            )
+
+        flash("Customer updated successfully.", "success")
+        return redirect(url_for("customers"))
+
+    return render_template(
+        "edit_customer.html",
+        customer=customer,
+        customer_id=customer_id
+    )
+    
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True, use_reloader=False)
