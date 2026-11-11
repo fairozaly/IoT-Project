@@ -86,6 +86,18 @@ def update_customer(
     db.commit()
     return True
 
+def remove_customer(customer_id):
+    db = get_db()
+
+    cursor = db.execute(
+        "DELETE FROM Customers WHERE customer_id = ?",
+        (customer_id,)
+    )
+
+    db.commit()
+
+    return cursor.rowcount > 0
+
 # PRODUCT METHODS
 def get_product(product_id):
     db = get_db()

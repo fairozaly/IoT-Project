@@ -10,6 +10,7 @@ from db import (
     add_product_reception,
     close_connection,
     delete_product,
+    remove_customer,
     delete_product_tag,
     edit_product,
     update_customer,
@@ -474,7 +475,16 @@ def edit_customer(customer_id):
         customer=customer,
         customer_id=customer_id
     )
-    
+
+@app.route("/delete_customer/<int:customer_id>", methods=["POST"])
+def delete_customer(customer_id):
+    if remove_customer(customer_id):
+        flash("Customer deleted successfully.", "success")
+    else:
+        flash("Customer cannot be deleted because it is used in transactions.", "error")
+    return redirect(url_for("customers"))
+
+   
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True, use_reloader=False)
