@@ -2,7 +2,7 @@
 {% block title %}Self-Checkout{% endblock %}
 {% block header_title %}Self-Checkout{% endblock %}
 {% block body_class %}checkout-page{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/checkout.css') }}">{% endblock %}
 {% block content %}
 <div class="sc-shell" id="selfCheckout" data-member="{{ 'true' if session.get('customer_id') else 'false' }}">
   <header class="sc-heading"><div><p class="sc-eyebrow">SMART STORE / SELF-SERVICE</p><h1>Self-Checkout</h1><p>Place your RFID-tagged products near the reader to begin.</p></div><span class="sc-session"><span class="sc-live-dot"></span> Checkout session</span></header>
@@ -18,7 +18,35 @@
     </div>
     <div class="sc-right"><section class="sc-panel sc-summary"><div class="sc-panel-title"><div><h2>Order Summary</h2><p>Live total from your store inventory</p></div></div><div class="sc-summary-line"><span>Items</span><strong id="scQuantity">0</strong></div><div class="sc-summary-line"><span>Subtotal</span><strong id="scSubtotal">$0.00</strong></div><div class="sc-summary-total"><span>Total</span><strong id="scTotal">$0.00</strong></div><p class="sc-small">Prices are provided by the server. Any applicable taxes must be configured in the backend.</p><button class="sc-btn sc-btn-primary sc-full" type="button" id="scNext" disabled>Continue to membership</button></section>
     <section class="sc-panel sc-flow" id="scMemberSection"><div class="sc-panel-title"><div><h2>Membership</h2><p>Optional loyalty program</p></div></div><div class="sc-member-status" id="scMemberStatus">{% if session.get('customer_id') %}<span class="sc-member-icon">✓</span><span><strong>Member account connected</strong><small>Eligible to earn loyalty points after purchase.</small></span>{% else %}<span class="sc-member-icon">★</span><span><strong>Continue as guest</strong><small>Sign in with your registered customer account to earn points.</small></span>{% endif %}</div><div class="sc-member-actions"><button type="button" class="sc-btn sc-btn-soft" id="scMembershipContinue">{% if session.get('customer_id') %}Use membership{% else %}Skip membership{% endif %}</button></div><p class="sc-small">Physical membership-card identification requires a backend lookup route; this page does not pretend to read a card.</p></section>
-    <section class="sc-panel sc-flow" id="scPaymentSection"><div class="sc-panel-title"><div><h2>Payment Simulation</h2><p>Review your order before completing</p></div></div><div class="sc-pay-box"><span class="sc-pay-icon">▣</span><span><strong>Simulated card payment</strong><small>No card information is collected.</small></span></div><label class="sc-confirm"><input type="checkbox" id="scConfirm" disabled><span>I confirm that all items and quantities are correct.</span></label><form method="post" action="{{ url_for('cart.complete_checkout') }}" id="scPaymentForm"><button class="sc-btn sc-btn-primary sc-full" id="scPay" type="submit" disabled>Confirm simulated payment</button></form><p class="sc-small">This performs a real transaction in the project database: inventory is deducted, points are awarded to eligible members, and receipt email is attempted.</p></section></div>
+    <section class="sc-panel sc-flow" id="scPaymentSection" aria-labelledby="scPaymentTitle">
+      <div class="sc-panel-title"><div><h2 id="scPaymentTitle">Payment Simulation</h2><p>Select a payment method to finish your order.</p></div><span class="sc-pill">Demo only</span></div>
+      <div class="sc-payment-banner" role="note">Test checkout: do not enter real card information. Completing checkout will still create a real order in the store database.</div>
+      <form method="post" action="{{ url_for('cart.complete_checkout') }}" id="scPaymentForm" novalidate>
+        <fieldset class="sc-payment-methods" id="scPaymentMethods" disabled>
+          <legend>Choose your payment method</legend>
+          <label class="sc-method"><input type="radio" name="demo_payment_method" value="credit" checked><span class="sc-method-icon">▣</span><span><strong>Credit card</strong><small>Simulated approval</small></span></label>
+          <label class="sc-method"><input type="radio" name="demo_payment_method" value="debit"><span class="sc-method-icon">▣</span><span><strong>Debit card</strong><small>Simulated PIN verification</small></span></label>
+          <label class="sc-method"><input type="radio" name="demo_payment_method" value="cash"><span class="sc-method-icon">$</span><span><strong>Cash</strong><small>Calculate change</small></span></label>
+          <label class="sc-method"><input type="radio" name="demo_payment_method" value="mobile"><span class="sc-method-icon">◉</span><span><strong>Mobile wallet</strong><small>Simulated tap</small></span></label>
+        </fieldset>
+        <div id="scCardFields" class="sc-method-details">
+          <p class="sc-field-heading">Demo card details</p>
+          <div class="sc-form-grid"><label class="sc-field">Card type<input id="scCardType" type="text" value="Test Visa •••• 4242" disabled readonly></label><label class="sc-field">Cardholder<input id="scCardholder" type="text" value="Demo Customer" disabled readonly></label></div>
+          <p class="sc-small">No card number, expiration date, or CVV is collected.</p>
+        </div>
+        <div id="scDebitFields" class="sc-method-details" hidden><p class="sc-field-heading">Simulated debit terminal</p><div class="sc-terminal">PIN verified automatically in demo mode — no actual PIN required.</div></div>
+        <div id="scCashFields" class="sc-method-details" hidden>
+          <label class="sc-field" for="scCashReceived">Cash received (CAD)<input type="number" id="scCashReceived" min="0" step="0.01" inputmode="decimal" placeholder="0.00" disabled></label>
+          <div class="sc-cash-change"><span>Change due</span><strong id="scChange">$0.00</strong></div>
+          <p id="scCashError" class="sc-validation" role="status" aria-live="polite"></p>
+        </div>
+        <div id="scMobileFields" class="sc-method-details" hidden><p class="sc-field-heading">Mobile wallet</p><div class="sc-terminal">Ready to simulate a contactless tap — no actual wallet connection.</div></div>
+        <div class="sc-checkout-due"><span>Amount to pay</span><strong id="scPaymentAmount">$0.00</strong></div>
+        <label class="sc-confirm"><input type="checkbox" id="scConfirm" disabled><span>I have reviewed the basket and agree to complete this simulated purchase.</span></label>
+        <button class="sc-btn sc-btn-primary sc-full" id="scPay" type="submit" disabled>Pay $0.00 (simulation)</button>
+      </form>
+      <p class="sc-small">This uses the existing checkout endpoint. Inventory is deducted, loyalty points may be awarded, and an email receipt may be sent if configured. The payment method is selected only in the browser; the current backend does not process or record it.</p>
+    </section></div>
   </div>
 </div>
 {% endblock %}
