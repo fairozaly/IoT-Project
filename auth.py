@@ -10,6 +10,10 @@ from flask import flash
 
 auth = Blueprint("auth", __name__)
 
+@app.before_request
+def require_signin():
+    if request.endpoint == "checkout":
+        return None
 
 def sign_in(user):
     session.clear()

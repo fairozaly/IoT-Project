@@ -51,7 +51,10 @@ init_auth(app)
 app.register_blueprint(cart)
 app.register_blueprint(account)
 
-@app.route("/", endpoint="index")
+@app.route("/")
+def index():
+    return redirect(url_for("checkout"))
+
 @app.route("/customers")
 def customers():
     return render_template("customers.html", customers=get_customers(), active_page="customers")
