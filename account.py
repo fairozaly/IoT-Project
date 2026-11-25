@@ -2,6 +2,7 @@ import functools
 from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import BadRequest
 
 from db import get_customer, get_db
 from receipts import LOCAL_TZ, get_receipt, send_receipt_email, to_local
@@ -51,7 +52,19 @@ def receipt_history():
     ).fetchone()[0]
     today = datetime.now(LOCAL_TZ).date()
     first_day = date.fromisoformat(to_local(first_purchase)[:10]) if first_purchase else today
-    start, end, bounds = date_range(min(first_day, today), today)
+    default_start = min(first_day, today)
+    export_receipts = request.args.get("format") == "receipts"
+    try:
+        start, end, bounds = date_range(default_start, today)
+    except BadRequest as error:
+        if export_receipts:
+            raise
+        return render_template(
+            "account_receipts.html", purchases=(), date_error=error.description,
+            start=request.args.get("start", default_start.isoformat()),
+            end=request.args.get("end", today.isoformat()),
+            active_page="account", account_page="receipts",
+        ), 400
 
     purchases = {}
     rows = db.execute(
@@ -70,7 +83,7 @@ def receipt_history():
         if row["quantity"] is not None:
             purchase["items"].append(row)
 
-    if request.args.get("format") == "receipts":
+    if export_receipts:
         return csv_download(
             "receipts.csv",
             ("Receipt", "Purchase time (Montreal)", "Product", "Quantity", "Unit price (CAD)", "Receipt total (CAD)"),
@@ -110,14 +123,17 @@ def product_history():
         """, (customer_id,),
     ).fetchall()
     product_search = request.args.get("product_search", "").strip()
-    if product_search:
-        search = product_search.casefold()
-        products = [row for row in products if search in row["name"].casefold()
-                    or search == str(row["product_id"])]
+    search = product_search.casefold()
+    matching_products = [
+        row for row in products
+        if search in row["name"].casefold() or search == str(row["product_id"])
+    ]
+    export_prices = request.args.get("format") == "prices"
+    candidates = products if export_prices else matching_products
     product_id = request.args.get("product_id", type=int)
-    product = next((row for row in products if row["product_id"] == product_id), None)
+    product = next((row for row in candidates if row["product_id"] == product_id), None)
     history = purchase_price_history(db, customer_id, product_id) if product else []
-    if request.args.get("format") == "prices":
+    if export_prices:
         if product is None:
             abort(404)
         return csv_download(
@@ -129,7 +145,7 @@ def product_history():
         )
     return render_template(
         "account_product_history.html",
-        products=products, product=product, product_search=product_search, history=history,
+        products=matching_products, product=product, product_search=product_search, history=history,
         purchase_count=len({row["transaction_id"] for row in history}),
         units_purchased=sum(row["quantity"] for row in history),
         active_page="account", account_page="products",
@@ -161,14 +177,24 @@ def purchase_price_history(db, customer_id, product_id):
     return history
 
 
+def receipt_filter_args():
+    return {name: request.args[name] for name in ("start", "end") if name in request.args}
+
+
 @account.route("/receipts/<int:transaction_id>")
 @customer_middleware
 def receipt(transaction_id):
     data = get_receipt(get_db(), transaction_id)
-    if data is None or data["transaction"]["customer_id"] != session["customer_id"]:
+    if (
+        data is None
+        or data["transaction"]["customer_id"] != session["customer_id"]
+        or data["transaction"]["status"] != "completed"
+    ):
         abort(404)
 
-    return render_template("receipt.html", receipt=data, active_page="account")
+    return render_template(
+        "receipt.html", receipt=data, active_page="account", receipt_filters=receipt_filter_args(),
+    )
 
 
 @account.route("/receipts/<int:transaction_id>/email", methods=["POST"])
@@ -176,11 +202,15 @@ def receipt(transaction_id):
 def email_receipt(transaction_id):
     db = get_db()
     data = get_receipt(db, transaction_id)
-    if data is None or data["transaction"]["customer_id"] != session["customer_id"]:
+    if (
+        data is None
+        or data["transaction"]["customer_id"] != session["customer_id"]
+        or data["transaction"]["status"] != "completed"
+    ):
         abort(404)
 
     if send_receipt_email(db, transaction_id):
         flash("Receipt emailed successfully.", "success")
     else:
         flash("Could not email the receipt. Check your email address or try again later.", "error")
-    return redirect(url_for("account.receipt", transaction_id=transaction_id))
+    return redirect(url_for("account.receipt", transaction_id=transaction_id, **receipt_filter_args()))
