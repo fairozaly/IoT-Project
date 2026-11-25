@@ -16,7 +16,6 @@
     ['Dashboard', 'Tableau de bord'],
     ['Storage History', 'Historique du stockage'],
     ['Inventory', 'Inventaire'],
-    ['Scan Testing', 'Test de lecture RFID'],
     ['Users', 'Utilisateurs'],
     ['Settings', 'Paramètres'],
     ['Customers', 'Clients'],

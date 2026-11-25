@@ -1,9 +1,13 @@
 import json
+import re
 from math import isfinite
 
+from config import FRIDGE3_BLE_DEVICE
 from db import get_db
 
-DEVICE = "c30000455da7/3"
+DEVICE = FRIDGE3_BLE_DEVICE
+if not re.fullmatch(r"[0-9a-f]{12}/[23]", DEVICE):
+    raise ValueError("FRIDGE3_BLE_DEVICE must be a 12-digit hex address followed by /2 or /3.")
 TOPIC = f"paretoanywhere/devices/{DEVICE}/dynamb"
 
 METRICS = {
@@ -11,16 +15,20 @@ METRICS = {
     "relativeHumidity": "humidity",
     "isMotionDetected": "motion",
     "batteryPercentage": "battery",
+    "illuminance": "illuminance",
+    "isLightDetected": "light_detected",
 }
 
 
 def valid_value(metric, value):
-    if metric == "isMotionDetected":
+    if metric in ("isMotionDetected", "isLightDetected"):
         return isinstance(value, list) and bool(value) and all(
             type(channel) is bool for channel in value
         )
     if not finite_number(value):
         return False
+    if metric == "illuminance":
+        return value >= 0
     return metric == "temperature" or 0 <= value <= 100
 
 
@@ -40,6 +48,9 @@ def store_message(topic, payload):
     timestamp = event.get("timestamp")
     if type(timestamp) is not int or not 0 < timestamp <= 8_640_000_000_000_000:
         return
+
+    if "isMotionDetected" not in event and "isOccupancyDetected" in event:
+        event["isMotionDetected"] = event["isOccupancyDetected"]
 
     readings = [
         (DEVICE, metric, json.dumps(event[metric]), timestamp)
@@ -72,8 +83,9 @@ def latest_fridge():
     reading = dict.fromkeys(METRICS.values())
     for key, row in metrics.items():
         reading[METRICS[key]] = json.loads(row["value"])
-    if reading["motion"] is not None:
-        reading["motion"] = any(reading["motion"])
+    for key in ("motion", "light_detected"):
+        if reading[key] is not None:
+            reading[key] = any(reading[key])
 
     return {
         **reading,

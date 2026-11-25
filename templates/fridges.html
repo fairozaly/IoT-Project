@@ -21,6 +21,7 @@
       {% if reading.bluetooth %}
       <div class="fd-meta"><span>Fan status</span><strong>Unavailable</strong></div>
       <div class="fd-meta"><span>Motion</span><strong>{{ 'Unknown' if reading.motion is none else ('Detected' if reading.motion else 'Clear') }}</strong></div>
+      <div class="fd-meta"><span>Light</span><strong>{{ reading.illuminance ~ ' lux' if reading.illuminance is not none else ('Unknown' if reading.light_detected is none else ('Detected' if reading.light_detected else 'Clear')) }}</strong></div>
       <div class="fd-meta"><span>Battery</span><strong>{{ 'Unknown' if reading.battery is none else reading.battery ~ ' %' }}</strong></div>
       {% else %}
       <div class="fd-meta"><span>Fan status</span><strong class="fd-fan-status">Unknown</strong></div>

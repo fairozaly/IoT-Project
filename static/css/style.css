@@ -2714,3 +2714,102 @@ body.dark-mode .product-detail-media {
     color: var(--blue);
     margin-block: 12px;
 }
+
+.report-bars {
+    list-style: none;
+    padding: 0;
+    max-width: 48rem;
+}
+
+.report-bars li {
+    display: grid;
+    grid-template-columns: minmax(6rem, 1fr) minmax(3rem, 2fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding-block: 4px;
+}
+
+.report-bars svg {
+    width: 100%;
+    height: 9px;
+    color: var(--blue);
+}
+
+.report-bar-track {
+    fill: var(--border);
+}
+
+.report-customer-mix {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0;
+}
+
+.report-customer-mix svg {
+    width: 125px;
+}
+
+.report-customer-mix figcaption span {
+    display: block;
+    color: var(--ink);
+    border-inline-start: 5px solid var(--slice);
+    padding-inline-start: 8px;
+    margin-block: 4px;
+}
+
+.report-pie-new {
+    --slice: var(--blue);
+    stroke: var(--slice);
+}
+
+.report-pie-returning {
+    --slice: var(--muted);
+    stroke: var(--slice);
+}
+
+@media print {
+    .report-page,
+    .report-page.dark-mode {
+        --ink: #171c24;
+        --white: #fff;
+        --bg: #fff;
+        --muted: #576576;
+        --blue: #0875bd;
+        --border: #cbd4df;
+        margin: 0;
+        color: var(--ink);
+        background: white;
+        print-color-adjust: exact;
+    }
+
+    .report-page .topbar,
+    .report-page .sidebar,
+    .report-page .toast-container,
+    .report-page .report-actions,
+    .report-page .report-print,
+    .report-page #inventory-refresh {
+        display: none;
+    }
+
+    .report-page .app-main {
+        margin: 0;
+        padding: 0;
+        width: auto;
+    }
+
+    .report-page .section-panel {
+        box-shadow: none;
+    }
+
+    .report-page .table-wrap {
+        overflow: visible;
+    }
+
+    .report-page tr,
+    .report-page figure,
+    .report-page .price-history-chart {
+        break-inside: avoid;
+    }
+}

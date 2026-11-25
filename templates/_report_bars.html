@@ -1,0 +1,18 @@
+{% macro quantity_bars(rows, field, title) %}
+{% if rows %}
+<h3>{{ title }}</h3>
+{% set maximum = rows|map(attribute=field)|max %}
+<ul class="report-bars">
+  {% for row in rows %}
+  <li>
+    <span>{{ row.name }} (#{{ row.product_id }})</span>
+    <svg viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
+      <rect width="100" height="8" class="report-bar-track"/>
+      <rect width="{{ 100 * row[field] / maximum if maximum else 0 }}" height="8" fill="currentColor"/>
+    </svg>
+    <strong>{{ row[field] }}</strong>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}

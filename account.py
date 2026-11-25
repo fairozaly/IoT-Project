@@ -5,7 +5,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 
 from db import get_db
 from receipts import LOCAL_TZ, get_receipt, send_receipt_email, to_local
-from reports import date_range
+from reports import csv_download, date_range
 
 account = Blueprint("account", __name__)
 account.add_app_template_filter(to_local, "localtime")
@@ -58,6 +58,17 @@ def overview():
         if row["quantity"] is not None:
             purchase["items"].append(row)
 
+    if request.args.get("format") == "receipts":
+        return csv_download(
+            "receipts.csv",
+            ("Receipt", "Purchase time (Montreal)", "Product", "Quantity", "Unit price (CAD)", "Receipt total (CAD)"),
+            ((purchase["receipt_number"] or purchase["transaction_id"], to_local(purchase["transaction_date"]),
+              item["name"], item["quantity"], item["price_at_sale"],
+              purchase["total_amount"] if index == 0 else "")
+             for purchase in purchases.values()
+             for index, item in enumerate(purchase["items"] or [purchase])),
+        )
+
     products = db.execute(
         """
         SELECT DISTINCT p.product_id, p.name
@@ -70,6 +81,16 @@ def overview():
     product_id = request.args.get("product_id", type=int)
     product = next((row for row in products if row["product_id"] == product_id), None)
     history = purchase_price_history(db, customer_id, product_id) if product else []
+    if request.args.get("format") == "prices":
+        if product is None:
+            abort(404)
+        return csv_download(
+            "product-price-history.csv",
+            ("Product ID", "Product", "Purchase time (Montreal)", "Quantity", "Unit price (CAD)",
+             "Change from previous purchase (CAD)"),
+            ((product_id, product["name"], to_local(row["transaction_date"]),
+              row["quantity"], row["price_at_sale"], row["change"]) for row in history),
+        )
     return render_template(
         "account.html", customer=customer, purchases=purchases.values(),
         total_spent=sum(p["total_amount"] for p in purchases.values()),

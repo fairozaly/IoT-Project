@@ -22,7 +22,6 @@ from db import (
     get_latest_readings,
     get_pending_alerts,
     get_product,
-    get_product_by_epc,
     get_product_receptions,
     get_product_tags,
     get_products,
@@ -298,37 +297,6 @@ def receive_scanned_stock():
     if result["status"] == "missing_product":
         return jsonify(error="Product not found."), 404
     return jsonify(result)
-
-
-@app.post("/api/scan-test/read")
-def read_test_tags():
-    if app.config.get("START_SERVICES", True):
-        tag_reader.ensure_started()
-    if not tag_reader.is_connected():
-        error = tag_reader.get_last_error()
-        if error:
-            return jsonify(error="Reader unavailable. Check its USB connection and close any other tag reader script."), 503
-        return jsonify(results=[], connected=False)
-    epcs = tag_reader.get_tags()
-    results = []
-    for epc in epcs:
-        product = get_product_by_epc(epc)
-        status = "Not registered"
-        product_data = None
-        if product is not None:
-            status = "Found"
-            product_data = dict(product)
-        results.append({
-            "epc": epc,
-            "status": status,
-            "product": product_data,
-        })
-    return jsonify(results=results, connected=True)
-
-
-@app.route("/scan-test")
-def scan_test():
-    return render_template("scan_test.html", active_page="scan_test")
 
 
 @app.route("/products/<int:product_id>/edit", methods=["GET", "POST"])

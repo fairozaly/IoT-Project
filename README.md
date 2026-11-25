@@ -17,4 +17,4 @@ To confirm Pareto Anywhere is decoding telemetry, subscribe to its [`dynamb` top
 mosquitto_sub -v -t 'paretoanywhere/devices/c30000455da7/3/dynamb'
 ```
 
-Fridge 3 uses Bluetooth sensor `c30000455da7/3` and reports temperature, humidity, motion, and battery. The ESP32 refrigerator readings drive the fan approval workflow.
+Fridge 3 uses Bluetooth sensor `c30000455da7/3` and reports temperature, humidity, motion, light, and battery. Set `FRIDGE3_BLE_DEVICE` in `.env` to the MSP01 device signature shown in the MQTT topic if it differs from the default. Enable the HT, PIR, and PS Sensor advertising slots to send temperature and humidity, motion, and illuminance. [Minew MSP01 configuration guide](https://reelyactive.github.io/diy/minew-msp01-config/). The ESP32 refrigerator readings drive the fan approval workflow.

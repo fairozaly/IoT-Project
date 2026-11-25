@@ -1,0 +1,9 @@
+<div class="field">
+  <label for="report-category">Category</label>
+  <select name="category" id="report-category">
+    <option value="">All categories</option>
+    {% for option in categories %}
+    <option value="{{ option.category }}" {% if option.category == category %}selected{% endif %}>{{ option.category }}</option>
+    {% endfor %}
+  </select>
+</div>

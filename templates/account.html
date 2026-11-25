@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block body_class %}customers-page report-page{% endblock %}
 {% block title %}My account{% endblock %}
 {% block header_title %}My account{% endblock %}
 {% block content %}
@@ -9,10 +10,10 @@
       <h1>Hello, {{ customer['first_name'] }}</h1>
       <p class="subhead">Your membership, loyalty points and purchase history.</p>
     </div>
-    <a class="btn btn-primary" href="{{ url_for('checkout') }}">Go to self-checkout</a>
+    <a class="btn btn-primary report-print" href="{{ url_for('checkout') }}">Go to self-checkout</a>
   </div>
 
-  <div class="section-panel">
+  <div class="section-panel report-print">
     <div class="section-heading"><div class="section-title"><h2>Membership</h2></div></div>
     <p><strong>Membership number:</strong> {{ customer['membership_number'] }}</p>
     <p><strong>Loyalty points:</strong> {{ customer['total_points'] }}</p>
@@ -25,12 +26,15 @@
     <div class="section-heading">
       <div class="section-title"><h2>Purchase history</h2></div>
       <span class="count-pill">{{ purchases|length }} total</span>
+      <button class="btn btn-secondary report-print" type="button" data-print-report>Print / Save as PDF</button>
     </div>
     <form method="get" class="report-actions">
       {% include "_report_dates.html" %}
       {% if product %}<input type="hidden" name="product_id" value="{{ product.product_id }}">{% endif %}
       <button class="btn btn-secondary">Filter receipts</button>
+      <a class="btn btn-secondary" href="{{ url_for('account.overview', start=start, end=end, format='receipts') }}">Download receipts CSV</a>
     </form>
+    <p>{{ start }} to {{ end }} · Montreal time</p>
     <p><strong>Total spent:</strong> ${{ '%.2f'|format(total_spent) }}</p>
     {% if purchases %}
     <div class="table-wrap">
@@ -74,7 +78,10 @@
     <p>Your purchased products will appear here after checkout.</p>
     {% endif %}
     {% if history %}
-    <h3>{{ product.name }}</h3>
+    <div class="section-heading">
+      <h3>{{ product.name }}</h3>
+      <a class="btn btn-secondary report-print" href="{{ url_for('account.overview', product_id=product.product_id, format='prices') }}">Download price history CSV</a>
+    </div>
     <p>{{ purchase_count }} purchases · {{ units_purchased }} units · All purchase dates</p>
     <svg class="price-history-chart" viewBox="0 0 600 155" role="img" aria-label="Unit prices by purchase, in chronological order. Exact prices and changes are in the table below.">
       <path d="M20 14V122H580" fill="none" stroke="currentColor" opacity=".35"/>
@@ -104,4 +111,7 @@
     {% endif %}
   </div>
 </section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/reports.js') }}" defer></script>
 {% endblock %}

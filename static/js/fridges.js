@@ -128,11 +128,14 @@
         if (item.bluetooth) {
           const motionRow = el('div', 'fd-meta');
           const batteryRow = el('div', 'fd-meta');
+          const lightRow = el('div', 'fd-meta');
           card.motion = el('strong');
           card.battery = el('strong');
+          card.light = el('strong');
           motionRow.append(el('span', '', 'Motion'), card.motion);
           batteryRow.append(el('span', '', 'Battery'), card.battery);
-          article.append(motionRow, batteryRow);
+          lightRow.append(el('span', '', 'Light'), card.light);
+          article.append(motionRow, lightRow, batteryRow);
         }
         grid.appendChild(article);
         cards.set(item.name, card);
@@ -142,6 +145,11 @@
       updateMetric(card.humidity, item.humidity);
       if (item.bluetooth) {
         card.motion.textContent = item.motion === null ? 'Unknown' : (item.motion ? 'Detected' : 'Clear');
+        if (Number.isFinite(item.illuminance)) {
+          card.light.textContent = item.illuminance.toLocaleString() + ' lux';
+        } else {
+          card.light.textContent = item.light_detected === null ? 'Unknown' : (item.light_detected ? 'Detected' : 'Clear');
+        }
         card.battery.textContent = Number.isFinite(item.battery) ? item.battery + ' %' : 'Unknown';
       } else {
         card.fan.textContent = fanRunning === null ? 'Unknown' : (fanRunning ? 'Running' : 'Stopped');

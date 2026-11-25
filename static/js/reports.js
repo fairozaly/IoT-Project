@@ -26,4 +26,15 @@ async function refreshInventory() {
   }
 }
 
-setTimeout(refreshInventory, 3000);
+if (inventory) setTimeout(refreshInventory, 3000);
+
+document.querySelectorAll('[data-print-report]').forEach(button => {
+  button.addEventListener('click', () => {
+    const closedDetails = document.querySelectorAll('.report-page details:not([open])');
+    closedDetails.forEach(details => { details.open = true; });
+    window.addEventListener('afterprint', () => {
+      closedDetails.forEach(details => { details.open = false; });
+    }, {once: true});
+    window.print();
+  });
+});
