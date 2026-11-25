@@ -43,6 +43,7 @@ from fan import stop_fan
 
 from mqtt import setup_mqtt
 import tag_reader
+from minew_api import minew
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
@@ -50,6 +51,7 @@ app.teardown_appcontext(close_connection)
 init_auth(app)
 app.register_blueprint(cart)
 app.register_blueprint(account)
+app.register_blueprint(minew)
 
 @app.route("/")
 def index():
