@@ -7,7 +7,20 @@
   const report = document.getElementById('productsReport');
   const text = id => document.getElementById(id);
   const unique = field => [...new Set(cards.map(card => card.dataset[field].trim()).filter(Boolean))];
-  text('productsStock').textContent = cards.reduce((sum, c) => sum + (Number(c.dataset.quantity) || 0), 0).toLocaleString();
+  function renderStockTotal() {
+    text('productsStock').textContent = cards.reduce((sum, card) => sum + Number(card.dataset.quantity), 0).toLocaleString();
+  }
+  renderStockTotal();
+
+  document.addEventListener('inventory:received', event => {
+    const {productId, quantity, tag_count: tagCount} = event.detail;
+    const card = cards.find(item => Number(item.dataset.productId) === productId);
+    if (!card) return;
+    card.dataset.quantity = quantity;
+    card.querySelector('[data-stock-units]').textContent = `${quantity} units`;
+    card.querySelector('[data-stock-tags]').textContent = `${tagCount} registered`;
+    renderStockTotal();
+  });
   text('productsCount').textContent = cards.length.toLocaleString();
   text('productsCategories').textContent = unique('category').length;
   text('productsManufacturers').textContent = unique('company').length;

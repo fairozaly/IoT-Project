@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block body_class %}customers-page report-page{% endblock %}
+{% block title %}{{ self.account_title() }}{% endblock %}
+{% block header_title %}My account{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="page-heading">
+    <h1>{% block account_title %}My account{% endblock %}</h1>
+    {% if account_page == 'membership' %}
+    <a class="btn btn-primary report-print" href="{{ url_for('checkout') }}">Go to self-checkout</a>
+    {% endif %}
+  </div>
+  <nav class="report-actions" aria-label="Customer account">
+    {% for key, endpoint, label in [
+      ('membership', 'account.overview', 'Membership'),
+      ('receipts', 'account.receipt_history', 'Receipts & spending'),
+      ('products', 'account.product_history', 'Product price history')
+    ] %}
+    <a class="btn {{ 'btn-primary' if account_page == key else 'btn-secondary' }}"
+       href="{{ url_for(endpoint) }}" {% if account_page == key %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% block account_content %}{% endblock %}
+</section>
+{% endblock %}

@@ -1,5 +1,4 @@
 import re
-import secrets
 import sqlite3
 from pathlib import Path
 
@@ -32,17 +31,6 @@ def get_customers():
     return cur.fetchall()
 
 
-def generate_membership_number(db):
-    while True:
-        membership_number = f"CUST-{secrets.token_hex(4).upper()}"
-        exists = db.execute(
-            "SELECT 1 FROM Customers WHERE membership_number = ?",
-            (membership_number,),
-        ).fetchone()
-        if not exists:
-            return membership_number
-
-
 def delete_customer(customer_id):
     db = get_db()
     try:
@@ -60,15 +48,14 @@ def add_customer(first_name, last_name, address, phone=None, email=None):
     db = get_db()
     db.execute(
         "INSERT INTO Customers "
-        "(first_name, last_name, address, phone, email, membership_number) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "(first_name, last_name, address, phone, email) "
+        "VALUES (?, ?, ?, ?, ?)",
         (
             first_name,
             last_name,
             address,
             phone,
             email,
-            generate_membership_number(db),
         ),
     )
     db.commit()
@@ -96,6 +83,32 @@ def get_product_by_barcode(barcode):
         (barcode,),
     )
     return cur.fetchone()
+
+
+DEFAULT_LOW_STOCK_THRESHOLD = 5
+
+
+def get_category_stock_thresholds():
+    return get_db().execute(
+        """
+        SELECT DISTINCT p.category, COALESCE(t.threshold, ?) AS threshold
+        FROM Products p LEFT JOIN CategoryStockThresholds t USING (category)
+        ORDER BY p.category
+        """, (DEFAULT_LOW_STOCK_THRESHOLD,),
+    ).fetchall()
+
+
+def set_category_stock_threshold(category, threshold):
+    db = get_db()
+    with db:
+        result = db.execute(
+            """
+            INSERT INTO CategoryStockThresholds (category, threshold)
+            SELECT ?, ? WHERE EXISTS (SELECT 1 FROM Products WHERE category = ?)
+            ON CONFLICT (category) DO UPDATE SET threshold = excluded.threshold
+            """, (category, threshold, category),
+        )
+    return result.rowcount > 0
 
 
 def get_products():
@@ -198,21 +211,6 @@ def normalize_epc(epc):
     return epc
 
 
-def register_product_epc(product_id, epc):
-    epc = normalize_epc(epc)
-    database = get_db()
-    try:
-        database.execute(
-            "INSERT INTO ProductTags (product_id, epc) VALUES (?, ?)",
-            (product_id, epc),
-        )
-        database.commit()
-    except sqlite3.IntegrityError:
-        database.rollback()
-        raise
-    return epc
-
-
 def get_product_by_epc(epc):
     return get_db().execute(
         "SELECT p.*, p.upc AS barcode FROM Products p "
@@ -311,20 +309,35 @@ def receive_scanned_tags(product_id, epcs, supplier=None):
             epc for epc in epcs
             if epc in existing and existing[epc] != product_id
         ]
+        reception = None
         if received:
             database.executemany(
                 "INSERT INTO ProductTags (product_id, epc) VALUES (?, ?)",
                 [(product_id, epc) for epc in received],
             )
-            database.execute(
+            reception_id = database.execute(
                 "INSERT INTO ProductReceptions "
                 "(product_id, quantity_received, supplier) VALUES (?, ?, ?)",
                 (product_id, len(received), supplier),
+            ).lastrowid
+            database.executemany(
+                "INSERT INTO ReceivedTags (tag_id, reception_id) "
+                "SELECT tag_id, ? FROM ProductTags WHERE product_id = ? AND epc = ?",
+                [(reception_id, product_id, epc) for epc in received],
             )
             database.execute(
                 "UPDATE Products SET quantity = quantity + ? WHERE product_id = ?",
                 (len(received), product_id),
             )
+            reception = dict(database.execute(
+                "SELECT r.reception_id, p.name AS product_name, r.quantity_received, "
+                "r.supplier, r.received_at FROM ProductReceptions r "
+                "JOIN Products p USING (product_id) WHERE r.reception_id = ?",
+                (reception_id,),
+            ).fetchone())
+        tag_count = database.execute(
+            "SELECT COUNT(*) FROM ProductTags WHERE product_id = ?", (product_id,)
+        ).fetchone()[0]
         database.commit()
     except Exception:
         database.rollback()
@@ -336,7 +349,52 @@ def receive_scanned_tags(product_id, epcs, supplier=None):
         "conflicts": conflicts,
         "count": len(received),
         "quantity": product["quantity"] + len(received),
+        "tag_count": tag_count,
+        "reception": reception,
     }
+
+
+def undo_received_tag(reception_id, epc):
+    database = get_db()
+    with database:
+        database.execute("BEGIN IMMEDIATE")
+        tag = database.execute(
+            """
+            SELECT t.tag_id, t.product_id, p.quantity, r.quantity_received
+            FROM ReceivedTags rt
+            JOIN ProductTags t USING (tag_id)
+            JOIN ProductReceptions r USING (reception_id)
+            JOIN Products p ON p.product_id = t.product_id
+            WHERE rt.reception_id = ? AND t.epc = ?
+            """, (reception_id, epc),
+        ).fetchone()
+        if tag is None or tag["quantity"] == 0:
+            return None
+
+        product_id = tag["product_id"]
+        database.execute("DELETE FROM ProductTags WHERE tag_id = ?", (tag["tag_id"],))
+        database.execute(
+            "UPDATE Products SET quantity = quantity - 1 WHERE product_id = ?", (product_id,)
+        )
+        quantity_received = tag["quantity_received"] - 1
+        if quantity_received:
+            database.execute(
+                "UPDATE ProductReceptions SET quantity_received = ? WHERE reception_id = ?",
+                (quantity_received, reception_id),
+            )
+        else:
+            database.execute(
+                "DELETE FROM ProductReceptions WHERE reception_id = ?", (reception_id,)
+            )
+        tag_count = database.execute(
+            "SELECT COUNT(*) FROM ProductTags WHERE product_id = ?", (product_id,)
+        ).fetchone()[0]
+        return {
+            "product_id": product_id,
+            "quantity": tag["quantity"] - 1,
+            "tag_count": tag_count,
+            "quantity_received": quantity_received,
+        }
 
 
 def add_product_reception(product_id, quantity_received, supplier=None):
@@ -621,11 +679,59 @@ def migrate_product_tags(database):
         database.execute("PRAGMA foreign_keys = ON")
 
 
+def migrate_optional_membership(database):
+    if not any(row["name"] == "membership_number" and row["notnull"]
+               for row in database.execute("PRAGMA table_info(Customers)")):
+        return
+
+    database.execute("PRAGMA foreign_keys = OFF")
+    try:
+        with database:
+            database.execute("BEGIN IMMEDIATE")
+            if not any(row["name"] == "membership_number" and row["notnull"]
+                       for row in database.execute("PRAGMA table_info(Customers)")):
+                return
+            sequence = database.execute(
+                "SELECT seq FROM sqlite_sequence WHERE name = 'Customers'"
+            ).fetchone()
+            database.execute("""
+                CREATE TABLE Customers_new (
+                    customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    first_name TEXT NOT NULL,
+                    last_name TEXT NOT NULL,
+                    address TEXT NOT NULL,
+                    phone TEXT UNIQUE,
+                    email TEXT UNIQUE,
+                    membership_number TEXT UNIQUE,
+                    total_points INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0)
+                )
+            """)
+            database.execute("""
+                INSERT INTO Customers_new
+                    (customer_id, first_name, last_name, address, phone, email, membership_number, total_points)
+                SELECT customer_id, first_name, last_name, address, phone, email, membership_number, total_points
+                FROM Customers
+            """)
+            database.execute("DROP TABLE Customers")
+            database.execute("ALTER TABLE Customers_new RENAME TO Customers")
+            if sequence:
+                database.execute("DELETE FROM sqlite_sequence WHERE name = 'Customers'")
+                database.execute(
+                    "INSERT INTO sqlite_sequence (name, seq) VALUES ('Customers', ?)",
+                    (sequence["seq"],),
+                )
+            if database.execute("PRAGMA foreign_key_check").fetchone():
+                raise sqlite3.IntegrityError("Customer migration failed its foreign key check.")
+    finally:
+        database.execute("PRAGMA foreign_keys = ON")
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
         with app.open_resource("db/schema.sql", mode="r") as f:
             db.cursor().executescript(f.read())
+        migrate_optional_membership(db)
         migrate_product_tags(db)
         migrate_product_images(db)
         migrate_stock_to_tags(db)

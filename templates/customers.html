@@ -27,7 +27,7 @@
           <p>{{ customer['email'] or 'No email provided' }}</p>
           <p>{{ customer['phone'] or 'No phone provided' }}</p>
           <p class="customer-address">{{ customer['address'] }}</p>
-          <p><strong>Membership:</strong> {{ customer['membership_number'] }}</p>
+          <p><strong>Membership:</strong> {{ customer['membership_number'] or 'Not assigned' }}</p>
           <div class="customer-actions">
             <a class="btn btn-secondary" href="{{ url_for('edit_customer', customer_id=customer['customer_id']) }}">Edit membership</a>
             <form method="post" action="{{ url_for('remove_customer', customer_id=customer['customer_id']) }}" onsubmit="return confirm('Delete this customer? This cannot be undone.');">

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_report_bars.html" import quantity_bars %}
+{% from "report_bars.html" import quantity_bars %}
 {% block body_class %}customers-page report-page{% endblock %}
 {% block title %}Reports{% endblock %}
 {% block header_title %}Reports{% endblock %}
@@ -19,19 +19,19 @@
     {% if report == 'inventory' %}
     <div class="section-heading"><h2>Available inventory</h2><small id="inventory-refresh">Updates every 3 seconds</small></div>
     <form method="get" class="report-actions">
-      {% include "_report_category.html" %}
+      {% include "report_category.html" %}
       <button class="btn btn-secondary">Apply</button>
       <a class="btn btn-secondary" href="{{ url_for('reports.overview', category=category, format='csv') }}">Download CSV</a>
     </form>
-    <p>{{ category or 'All categories' }}</p>
-    <div id="inventory-report">{% include "_report_inventory.html" %}</div>
+    <p>{{ category or 'All categories' }} <a class="report-print" href="{{ url_for('settings', _anchor='stock-thresholds') }}">Manage stock alerts</a></p>
+    <div id="inventory-report">{% include "report_inventory.html" %}</div>
     {% else %}
     <h2>{{ 'Sales performance' if report == 'sales' else 'Customer activity' }}</h2>
     <form method="get" class="report-actions">
       <input type="hidden" name="report" value="{{ report }}">
-      {% include "_report_dates.html" %}
+      {% include "report_dates.html" %}
       {% if report == 'sales' %}
-      {% include "_report_category.html" %}
+      {% include "report_category.html" %}
       <div class="field"><label for="limit">Products per ranking</label>
         <input type="number" name="limit" id="limit" min="1" max="50" value="{{ limit }}" required>
       </div>

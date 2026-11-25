@@ -22,19 +22,4 @@
   var toasts = container.querySelectorAll(".toast");
   toasts.forEach(dismiss);
 
-  var seen = {};
-  function pollAlerts() {
-    fetch("/alerts")
-      .then(function (response) { return response.json(); })
-      .then(function (items) {
-        items.forEach(function (item) {
-          if (seen[item.id]) return;
-          seen[item.id] = true;
-          window.showToast(item.message, "error");
-        });
-      })
-      .catch(function () {});
-  }
-  pollAlerts();
-  setInterval(pollAlerts, 5000);
 })();

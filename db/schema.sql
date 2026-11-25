@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS Customers (
     address         TEXT NOT NULL,
     phone           TEXT UNIQUE,
     email           TEXT UNIQUE,
-    membership_number TEXT NOT NULL UNIQUE,
+    membership_number TEXT UNIQUE,
     total_points    INTEGER NOT NULL DEFAULT 0 CHECK (total_points >= 0)
 );
 
@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS Products (
     quantity        INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     company         TEXT NOT NULL,
     image_url       TEXT
+);
+
+CREATE TABLE IF NOT EXISTS CategoryStockThresholds (
+    category TEXT PRIMARY KEY,
+    threshold INTEGER NOT NULL CHECK (threshold >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS ProductTags (
@@ -40,6 +45,11 @@ CREATE TABLE IF NOT EXISTS ProductReceptions (
     received_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     supplier          TEXT,
     FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS ReceivedTags (
+    tag_id INTEGER PRIMARY KEY REFERENCES ProductTags(tag_id) ON DELETE CASCADE,
+    reception_id INTEGER NOT NULL REFERENCES ProductReceptions(reception_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS Transactions (
@@ -153,6 +163,14 @@ CREATE TABLE IF NOT EXISTS CartItems (
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     PRIMARY KEY (user_id, product_id),
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS GuestCartItems (
+    cart_id TEXT NOT NULL,
+    product_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    PRIMARY KEY (cart_id, product_id),
     FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
 );
 

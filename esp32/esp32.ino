@@ -8,11 +8,12 @@
 #define FRIDGE_1_PIN 12
 #define FRIDGE_NAME "Frig2"
 
-#define MQTT_SERVER_ADDRESS "10.0.0.237"
+
+#define MQTT_SERVER_ADDRESS "172.20.10.5"
 #define MQTT_SERVER_PORT 1883
 
-#define NETWORK_SSID ""
-#define NETWORK_PASSWORD ""
+#define NETWORK_SSID "Spyro"
+#define NETWORK_PASSWORD "ukdy76299"
 
 class state_t {
 public:

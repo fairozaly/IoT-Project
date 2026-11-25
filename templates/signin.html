@@ -20,6 +20,9 @@
         <button type="submit">{{ self.title() }}</button>
       </form>
       {% block switch %}<p>Need an account? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>{% endblock %}
+      {% if not session.get('user_id') %}
+      <p><a href="{{ url_for('checkout') }}">Continue to self-checkout as a guest</a></p>
+      {% endif %}
       <p>Shopping here? <a href="{{ url_for('auth.customer_signup') }}">Create a customer account</a></p>
     </section>
   </main>

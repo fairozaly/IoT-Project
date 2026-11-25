@@ -4,7 +4,7 @@ from datetime import date, datetime, time, timedelta, timezone
 
 from flask import Blueprint, Response, abort, render_template, request
 
-from db import get_db
+from db import DEFAULT_LOW_STOCK_THRESHOLD, get_db
 from receipts import LOCAL_TZ, to_local
 
 reports = Blueprint("reports", __name__)
@@ -138,6 +138,14 @@ def activity_label(count, busiest, quietest):
     return ""
 
 
+def stock_status(quantity, threshold):
+    if quantity < threshold:
+        return "Low"
+    if quantity < 2 * threshold:
+        return "Moderate"
+    return "OK"
+
+
 @reports.get("/reports")
 def overview():
     report = request.args.get("report", "inventory")
@@ -154,21 +162,31 @@ def overview():
         data["products"] = db.execute(
             """
             SELECT p.product_id, p.name, p.category, p.quantity,
-                   MAX(r.received_at) AS last_restocked
+                   MAX(r.received_at) AS last_restocked,
+                   COALESCE(t.threshold, ?) AS stock_threshold
             FROM Products p LEFT JOIN ProductReceptions r USING (product_id)
+            LEFT JOIN CategoryStockThresholds t USING (category)
             WHERE ? = '' OR p.category = ?
             GROUP BY p.product_id ORDER BY p.name, p.product_id
-            """, (category, category),
+            """, (DEFAULT_LOW_STOCK_THRESHOLD, category, category),
         ).fetchall()
+        data["products"] = [dict(row) for row in data["products"]]
+        for row in data["products"]:
+            row["stock_status"] = stock_status(row["quantity"], row["stock_threshold"])
+        data["low_stock_count"] = sum(row["stock_status"] == "Low" for row in data["products"])
         if export:
             return csv_download(
-                "inventory.csv", ("Product ID", "Product", "Category", "Available", "Last restocked (Montreal)"),
+                "inventory.csv",
+                ("Product ID", "Product", "Category", "Available", "Last restocked (Montreal)",
+                 "Low-stock limit", "Stock status"),
                 ((row["product_id"], row["name"], row["category"], row["quantity"],
-                  to_local(row["last_restocked"]) if row["last_restocked"] else "")
+                  to_local(row["last_restocked"]) if row["last_restocked"] else "",
+                  row["stock_threshold"],
+                  row["stock_status"])
                  for row in data["products"]),
             )
         if request.headers.get("X-Report-Fragment") == "inventory":
-            return render_template("_report_inventory.html", **data), 200, {"Cache-Control": "no-store"}
+            return render_template("report_inventory.html", **data), 200, {"Cache-Control": "no-store"}
     elif report in ("sales", "customers"):
         today = datetime.now(LOCAL_TZ).date()
         start, end, bounds = date_range(today.replace(day=1), today)

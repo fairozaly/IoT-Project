@@ -11,6 +11,10 @@
         </div>
     </div>
     <div class="section-panel">
+        <h2>Appearance</h2>
+        {% include "theme_preference.html" %}
+    </div>
+    <div class="section-panel">
         <h2>Fridge thresholds</h2>
         <p>Readings at or above these limits are flagged. Fridge 3 shows threshold warnings on Storage Overview.</p>
         {% for fridge in thresholds %}
@@ -31,6 +35,24 @@
             </div>
             <button type="submit" class="btn btn-primary">Save {{ fridge.name }} thresholds</button>
         </form>
+        {% endfor %}
+    </div>
+    <div class="section-panel" id="stock-thresholds">
+        <h2>Low-stock thresholds</h2>
+        <p>Stock is Low below the limit, Moderate from the limit to just under twice the limit, and OK at twice the limit or more. New categories default to 5. Set a limit of 0 to disable alerts for a category.</p>
+        {% for category in stock_thresholds %}
+        <form method="post" class="setting-row">
+            <input type="hidden" name="setting" value="stock">
+            <input type="hidden" name="category" value="{{ category.category }}">
+            <div class="field">
+                <label for="stock-threshold-{{ loop.index }}">{{ category.category }} low-stock limit</label>
+                <input type="number" id="stock-threshold-{{ loop.index }}" name="stock_threshold"
+                       value="{{ category.threshold }}" min="0" step="1" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+        {% else %}
+        <p>Product categories will appear here after products are added.</p>
         {% endfor %}
     </div>
 </section>

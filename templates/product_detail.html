@@ -14,25 +14,10 @@
     </div>
     {% if product['image_url'] %}<div class="product-detail-media"><img src="{{ product['image_url'] }}" alt="{{ product['name'] }}"></div>{% endif %}
     <div class="section-panel">
-        <h2>Register an EPC</h2>
-        <p>Each physical unit needs its own unique RFID tag. Register multiple EPCs to this product's UPC.</p>
-        <form method="post" action="{{ url_for('product_detail', product_id=product['product_id']) }}" class="customer-form">
-            <div class="field">
-                <label for="epc">EPC <span class="required">*</span></label>
-                <input id="epc" name="epc" type="text" value="{{ epc_input }}"
-                       minlength="2" maxlength="24" pattern="([0-9A-Fa-f]{2}){1,12}"
-                       autocomplete="off" spellcheck="false" autofocus required
-                       aria-describedby="epc-help">
-                <p id="epc-help">Enter the tag's hexadecimal EPC (2–24 characters, in pairs), then press Enter. Letters are saved in uppercase.</p>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Register EPC</button>
-            </div>
-        </form>
-        <p>Registering a tag links it to this product. Use Receive stock in inventory to record quantities received.</p>
-    </div>
-    <div class="section-panel">
-        <h2>Registered EPCs</h2>
+        <div class="section-heading">
+            <h2>Registered EPCs</h2>
+            <a class="btn btn-secondary" href="{{ url_for('inventory', receive_product=product.product_id, _anchor='rfid-receive-heading') }}">Receive tags</a>
+        </div>
         {% if tags %}
         <div class="table-wrap">
             <table class="data-table">
@@ -54,7 +39,7 @@
             </table>
         </div>
         {% else %}
-        <p>No EPCs registered yet. Register your first tag above.</p>
+        <p>No RFID tags are currently linked to this product.</p>
         {% endif %}
     </div>
 </section>

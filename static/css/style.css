@@ -2627,20 +2627,42 @@ body.dark-mode .language-switcher {
     flex-wrap: wrap;
 }
 
+#rfid-receive-heading {
+    scroll-margin-top: 90px;
+}
+
 .receive-tags {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 1 / -1;
     gap: 8px;
-    margin: 14px 0 0;
+    margin: 0;
     padding: 0;
     list-style: none;
 }
 
 .receive-tags li {
-    padding: 9px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 4px 3px 9px;
+    max-width: 100%;
     background: var(--pr-soft, #f6faff);
     border: 1px solid var(--pr-line, #e2ebf2);
     border-radius: 8px;
     font-size: 12px;
+}
+
+.receive-tags code {
+    overflow-wrap: anywhere;
+}
+
+.receive-error {
+    color: #a13224;
+}
+
+.dark-mode .receive-error {
+    color: #ffac9d;
 }
 
 .dark .product-image,
@@ -2661,19 +2683,41 @@ body.dark-mode .product-detail-media {
 }
 
 .sc-member-form {
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 14px;
+    display: grid;
+    gap: 12px;
 }
 
-.sc-member-form .sc-field {
-    flex: 1 1 220px;
+.sc-member-form .sc-field small {
+    color: var(--sc-muted);
+    font-weight: 400;
+    line-height: 1.5;
 }
 
-.sc-member-form .sc-btn {
-    flex: none;
+.sc-member-status.is-applied .sc-member-icon {
+    color: #14663c;
+    background: #e2f4e8;
+}
+
+.sc-member-remove {
+    margin-inline-start: auto;
+}
+
+.sc-membership-feedback:empty,
+.sc-member-actions:has(button[hidden]) {
+    display: none;
+}
+
+.sc-membership-feedback.is-error {
+    color: #9b2c20;
+}
+
+.dark-mode .sc-membership-feedback.is-error {
+    color: #ffac9d;
+}
+
+.sc-member-form input[aria-invalid="true"] {
+    border-color: currentColor;
+    outline-color: #b14334;
 }
 
 .sc-item-symbol img {
@@ -2812,4 +2856,138 @@ body.dark-mode .product-detail-media {
     .report-page .price-history-chart {
         break-inside: avoid;
     }
+}
+
+.stock-warning {
+    color: #9b2c20;
+    font-weight: 700;
+}
+
+.dark-mode .stock-warning {
+    color: #ffac9d;
+}
+
+@media print {
+    .dark-mode .stock-warning {
+        color: #9b2c20;
+    }
+}
+
+.stock-level {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.stock-level-ok {
+    background: #e2f4e8;
+    color: #17643a;
+}
+
+.stock-level-moderate {
+    background: #fff2c4;
+    color: #745200;
+}
+
+.stock-level-low {
+    background: #fce5e2;
+    color: #9b2c20;
+}
+
+.theme-preference {
+    max-width: 16rem;
+    margin-block: 12px;
+}
+
+.notification-wrapper {
+    position: relative;
+}
+
+.notification-panel {
+    position: absolute;
+    z-index: 90;
+    inset-inline-end: 0;
+    top: calc(100% + 8px);
+    width: min(24rem, calc(100vw - 28px));
+    max-height: min(26rem, 70vh);
+    overflow: auto;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--white);
+    box-shadow: var(--shadow);
+}
+
+.notification-panel h2 {
+    font-size: 1rem;
+}
+
+.notification-panel ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.notification-panel li {
+    padding-block: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.notification-badge {
+    position: absolute;
+    inset-inline-end: -4px;
+    top: -4px;
+    padding: 1px 5px;
+    border-radius: 20px;
+    background: #9b2c20;
+    color: white;
+    font-size: 10px;
+}
+
+@media (max-width: 580px) {
+    #notificationsToggle {
+        display: inline-grid;
+        place-items: center;
+        width: 34px;
+        height: 36px;
+    }
+
+    .notification-panel {
+        position: fixed;
+        inset: 60px 12px auto auto;
+    }
+
+    .report-page .section-heading {
+        flex-wrap: wrap;
+    }
+
+    .report-page .report-actions .field {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .report-page .report-bars li {
+        grid-template-columns: minmax(4.5rem, 1fr) minmax(1rem, 1fr) auto;
+        gap: 6px;
+    }
+}
+
+.checkout-page [hidden] {
+    display: none;
+}
+
+.receive-undo {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--white);
+    color: var(--blue);
+    font: inherit;
+    cursor: pointer;
+}
+
+.receive-undo:disabled {
+    opacity: .55;
+    cursor: wait;
 }

@@ -1,0 +1,25 @@
+{% from "report_bars.html" import quantity_bars %}
+{% if low_stock_count %}
+<p class="stock-warning">{{ low_stock_count }} {{ 'product' if low_stock_count == 1 else 'products' }} below the low-stock limit</p>
+{% endif %}
+{{ quantity_bars(products|sort(attribute='quantity', reverse=true)|list, 'quantity', 'Available units by product') }}
+<div class="table-wrap">
+  <table class="data-table">
+    <thead><tr><th>Product</th><th>Product ID</th><th>Category</th><th>Available</th><th>Stock level</th><th>Last restocked</th></tr></thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td>{{ product.name }}</td><td>{{ product.product_id }}</td><td>{{ product.category }}</td>
+        <td>{{ product.quantity }}</td>
+        <td>
+          <span class="stock-level stock-level-{{ product.stock_status|lower }}">{{ product.stock_status }}</span>
+          {% if product.stock_status == 'Low' %}<small>Below {{ product.stock_threshold }}</small>{% endif %}
+        </td>
+        <td>{{ product.last_restocked|localtime if product.last_restocked else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No products match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

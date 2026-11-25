@@ -18,3 +18,18 @@ mosquitto_sub -v -t 'paretoanywhere/devices/c30000455da7/3/dynamb'
 ```
 
 Fridge 3 uses Bluetooth sensor `c30000455da7/3` and reports temperature, humidity, motion, light, and battery. Set `FRIDGE3_BLE_DEVICE` in `.env` to the MSP01 device signature shown in the MQTT topic if it differs from the default. Enable the HT, PIR, and PS Sensor advertising slots to send temperature and humidity, motion, and illuminance. [Minew MSP01 configuration guide](https://reelyactive.github.io/diy/minew-msp01-config/). The ESP32 refrigerator readings drive the fan approval workflow.
+
+## Catalog photo credits
+
+Product packshots were cropped, resized, and padded for the inventory tiles.
+
+| Product | Photo source |
+| --- | --- |
+| Pepsi | [Gem's Grocery](https://gemsgrocery.ca/products/pepsi-classic-355ml) |
+| Evian | [Danone Foodservice](https://foodservice.danone.es/product/evian-50cl/) |
+| KitKat | [Real Canadian Superstore](https://www.realcanadiansuperstore.ca/en/food/snacks-chips-candy/candy-chocolate/chocolate/c/29915) |
+| Coca-Cola | [Lowe's](https://www.lowes.com/pd/Coca-Cola-Coca-Cola-Bottle-20-fl-oz/5014075097) |
+| Red Bull | [J L Brooks](https://jlbrooks.co.uk/redbull-can-250ml-x-24.html) |
+| Hershey's Milk Chocolate | [Open Food Facts contributors](https://world.openfoodfacts.org/product/0034000002405) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| M&M's Peanut | [Martin's](https://martinsfoods.com/groceries/candy-chocolate/chocolate-candy/single-serve-chocolate-candy/mms-peanut-milk-chocolate-candy-174-oz-bag.html) |
+| Pringles Original | [Open Food Facts contributors](https://world.openfoodfacts.org/product/0038000138416) · [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |

@@ -5,7 +5,6 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import get_db, set_active_recipient
-from db import generate_membership_number
 from flask import flash
 
 auth = Blueprint("auth", __name__)
@@ -88,8 +87,8 @@ def customer_signup():
     database = get_db()
     try:
         stmt = database.execute(
-            "INSERT INTO Customers (first_name, last_name, address, phone, email, membership_number) VALUES (?, ?, ?, ?, ?, ?)",
-            (first_name, last_name, address, phone, email, generate_membership_number(database)))
+            "INSERT INTO Customers (first_name, last_name, address, phone, email) VALUES (?, ?, ?, ?, ?)",
+            (first_name, last_name, address, phone, email))
         customer_id = stmt.lastrowid
         database.execute(
             "INSERT INTO Users (email, password_hash, customer_id) VALUES (?, ?, ?)",
@@ -115,22 +114,30 @@ def init_auth(app):
     app.register_blueprint(auth)
     app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
+    checkout_pages = {
+        "checkout", "cart.current_cart", "cart.add_item", "cart.update_item",
+        "cart.complete_checkout", "cart.scan_tags", "cart.membership", "cart.guest_receipt",
+    }
+    customer_pages = {
+        "account.overview", "account.receipt_history", "account.product_history",
+        "account.receipt", "account.email_receipt", "auth.signout",
+    }
+
     @app.before_request
     def require_signin():
-        if request.endpoint == "auth.customer_signup":
+        if request.endpoint in checkout_pages:
+            if session.get("user_id") and session.get("customer_id") is None:
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": "Self-checkout is for guests and customer accounts."}), 403
+                return redirect(url_for("fridges"))
             return None
-        if request.endpoint in ("static", "auth.signin", "auth.signup"):
+        if request.endpoint in ("static", "auth.signin", "auth.signup", "auth.customer_signup"):
             return None
         if not session.get("user_id"):
             if request.path.startswith("/api/") or request.path == "/alerts":
                 return jsonify({"error": "Please sign in."}), 401
             return redirect(url_for("auth.signin"))
-        if session.get("customer_id") is not None:
-            customer_pages = ["account.overview", "account.receipt", "account.email_receipt",
-                                "checkout", "cart.current_cart", "cart.add_item",
-                                "cart.update_item", "cart.complete_checkout",
-                                "cart.scan_tags", "cart.membership", "auth.signout"]
-            if request.endpoint not in customer_pages:
-                if request.path.startswith("/api/") or request.path == "/alerts":
-                    return jsonify({"error": "Not allowed for customer accounts."}), 403
-                return redirect(url_for("account.overview"))
+        if session.get("customer_id") is not None and request.endpoint not in customer_pages:
+            if request.path.startswith("/api/") or request.path == "/alerts":
+                return jsonify({"error": "Not allowed for customer accounts."}), 403
+            return redirect(url_for("account.overview"))

@@ -8,9 +8,16 @@
         currency: 'CAD'
     }).format(Number(value) || 0);
     let cart = {items: [], quantity: 0, total: 0, stock_available: true};
-    let hasMembership = false;
+    const signedInMember = root.dataset.member === 'true';
+    const membershipForm = $('scMembershipForm');
+    const membershipInput = $('scMembershipNumber');
+    const membershipMessage = $('scMembershipMessage');
+    const membershipContinue = $('scMembershipContinue');
+    let membershipApplied = false;
+    let membershipPending = false;
     let running = true;
-    let busy = false;
+    let readerRequest;
+    let transitioning = false;
     let completing = false;
     let step = 1;
     let readerTimer;
@@ -25,7 +32,7 @@
     }
 
     function updatePayment() {
-        const enabled = step === 3 && hasMembership && cart.items.length > 0 && cart.stock_available;
+        const enabled = step === 3 && !membershipPending && cart.items.length > 0 && cart.stock_available;
         $('scPaymentAmount').textContent = money(cart.total);
         $('scPay').textContent = 'Pay now';
         $('scPay').disabled = completing || !enabled;
@@ -37,11 +44,18 @@
             const value = Number(el.dataset.step);
             el.classList.toggle('is-active', value === step);
             el.classList.toggle('is-done', value < step);
+            if (value === step) el.setAttribute('aria-current', 'step');
+            else el.removeAttribute('aria-current');
         });
-        $('scMemberSection').hidden = step < 2;
+        $('scMemberSection').hidden = !signedInMember && step < 2;
         $('scPaymentSection').hidden = step < 3;
+        if (membershipContinue) membershipContinue.hidden = step !== 2;
         $('scMemberSection').classList.toggle('is-current', step === 2);
         $('scPaymentSection').classList.toggle('is-current', step === 3);
+        $('scNext').textContent = step === 1
+            ? (signedInMember ? 'Review and pay' : 'Continue to membership')
+            : 'Scan more items';
+        $('scNext').disabled = transitioning || (step === 1 && (!cart.items.length || !cart.stock_available));
         updatePayment();
     }
 
@@ -93,7 +107,7 @@
         $('scQuantity').textContent = cart.quantity;
         $('scSubtotal').textContent = money(cart.total);
         $('scTotal').textContent = money(cart.total);
-        $('scNext').disabled = !cart.items.length || !cart.stock_available;
+        $('scNext').disabled = transitioning || (step === 1 && (!cart.items.length || !cart.stock_available));
         if (!cart.stock_available) notice('Some quantities are no longer available. Update the basket before checkout.', true);
         updatePayment();
     }
@@ -127,11 +141,16 @@
         return true;
     }
 
-    async function pollTags() {
-        if (!running || busy) return;
-        busy = true;
+    function pollTags() {
+        if (!running) return;
+        readerRequest = readTags().finally(() => {
+            if (running) readerTimer = setTimeout(pollTags, 700);
+        });
+    }
+
+    async function readTags() {
         try {
-            const response = await fetch('/api/checkout/tags');
+            const response = await fetch('/api/checkout/tags', {cache: 'no-store', signal: AbortSignal.timeout(8000)});
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Reader unavailable.');
             setReader(data.connected);
@@ -162,34 +181,78 @@
         } catch (error) {
             setReader(false);
             notice(error.message, true);
-        } finally {
-            busy = false;
-            if (running) readerTimer = setTimeout(pollTags, 700);
         }
     }
 
-    function setMembership(customer) {
-        const box = $('scMemberStatus');
-        box.replaceChildren();
-        const icon = document.createElement('span');
-        icon.className = 'sc-member-icon';
-        icon.textContent = customer ? '✓' : '★';
-        const text = document.createElement('span');
-        const strong = document.createElement('strong');
-        const small = document.createElement('small');
-        if (customer) {
-            strong.textContent = `${customer.first_name} ${customer.last_name}`;
-            small.textContent = `Membership ${customer.membership_number} · ${customer.total_points} points`;
-        } else {
-            strong.textContent = 'No membership applied';
-            small.textContent = 'Enter a membership number or continue as a guest.';
-        }
-        text.append(strong, small);
-        box.append(icon, text);
-        hasMembership = Boolean(customer);
-        $('scMembershipContinue').textContent = 'Continue to payment';
-        $('scMembershipContinue').disabled = !hasMembership;
+    function setMembership(applied) {
+        membershipApplied = applied;
+        $('scMemberStatus').hidden = !applied;
+        membershipForm.hidden = applied;
+        membershipContinue.textContent = applied ? 'Continue to payment' : 'Continue without membership';
+    }
+
+    function membershipFeedback(text, invalid = false) {
+        membershipMessage.textContent = text;
+        membershipMessage.classList.toggle('is-error', invalid);
+        membershipInput.setAttribute('aria-invalid', String(invalid));
+    }
+
+    function continueToPayment() {
+        setStep(3);
+        $('scPaymentSection').scrollIntoView({behavior: 'smooth', block: 'center'});
+        $('scPay').focus({preventScroll: true});
+    }
+
+    async function changeMembership(method, identifier) {
+        if (membershipPending) return;
+        const apply = $('scApplyMembership');
+        const remove = $('scRemoveMembership');
+        const removing = method === 'DELETE';
+        membershipPending = true;
+        membershipForm.setAttribute('aria-busy', 'true');
+        apply.disabled = true;
+        membershipInput.readOnly = true;
+        remove.disabled = true;
+        membershipContinue.disabled = true;
+        $('scNext').disabled = true;
+        apply.textContent = 'Checking membership…';
+        membershipFeedback(removing ? 'Removing membership…' : '');
         updatePayment();
+        try {
+            const response = await fetch('/api/checkout/membership', {
+                method,
+                headers: {'Content-Type': 'application/json'},
+                signal: AbortSignal.timeout(8000),
+                body: identifier === undefined ? undefined : JSON.stringify({membership: identifier})
+            });
+            const data = await response.json();
+            if (response.status === 404) {
+                throw new Error('No membership found. Check the number or email, or continue without membership.');
+            }
+            if (!response.ok) throw new Error(data.error || 'Unable to update membership.');
+            setMembership(data.applied);
+            membershipInput.value = '';
+            membershipFeedback(data.applied ? '' : 'Membership removed.');
+        } catch (error) {
+            membershipFeedback(error.message, !removing);
+        } finally {
+            membershipPending = false;
+            membershipForm.removeAttribute('aria-busy');
+            apply.textContent = 'Apply membership';
+            apply.disabled = false;
+            membershipInput.readOnly = false;
+            remove.disabled = false;
+            membershipContinue.disabled = false;
+            $('scNext').disabled = step === 1 && (!cart.items.length || !cart.stock_available);
+            updatePayment();
+            if (membershipApplied) {
+                const target = membershipContinue.hidden ? (removing ? remove : $('scPay')) : membershipContinue;
+                target.focus({preventScroll: true});
+            } else {
+                membershipInput.focus({preventScroll: true});
+                if (membershipInput.value) membershipInput.select();
+            }
+        }
     }
 
     $('scClearCart').addEventListener('click', async () => {
@@ -204,44 +267,52 @@
         }
     });
 
-    $('scNext').addEventListener('click', () => {
-        setStep(2);
-        $('scMemberSection').scrollIntoView({behavior: 'smooth', block: 'center'});
-        $('scMembershipNumber').focus();
-    });
-
-    $('scMembershipContinue').addEventListener('click', () => {
-        if (!hasMembership) return;
-        setStep(3);
-        $('scPaymentSection').scrollIntoView({behavior: 'smooth', block: 'center'});
-    });
-
-    $('scMembershipForm').addEventListener('submit', async event => {
-        event.preventDefault();
-        const input = $('scMembershipNumber');
-        const number = input.value.trim();
-        const message = $('scMembershipMessage');
-        if (!number) {
-            message.textContent = 'Scan or enter a membership number.';
+    $('scNext').addEventListener('click', async () => {
+        if (step !== 1) {
+            setStep(1);
+            running = true;
+            pollTags();
             return;
         }
-        try {
-            const response = await fetch('/api/checkout/membership', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({membership_number: number})
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Membership not found.');
-            setMembership(data.customer);
-            input.value = '';
-            message.textContent = 'Membership applied. Continue to payment.';
-            message.style.color = '';
-        } catch (error) {
-            message.textContent = error.message;
-            message.style.color = '#ce6060';
+        transitioning = true;
+        $('scNext').disabled = true;
+        running = false;
+        clearTimeout(readerTimer);
+        await readerRequest;
+        transitioning = false;
+        if (!cart.items.length || !cart.stock_available) {
+            setStep(1);
+            running = true;
+            pollTags();
+            return;
         }
+        $('scScanHeadline').textContent = 'Scanning paused';
+        $('scScanCaption').textContent = 'Choose Scan more items to resume.';
+        if (signedInMember) {
+            continueToPayment();
+            return;
+        }
+        setStep(2);
+        $('scMemberSection').scrollIntoView({behavior: 'smooth', block: 'center'});
+        (membershipApplied ? membershipContinue : membershipInput).focus({preventScroll: true});
     });
+
+    if (membershipForm) {
+        setMembership(membershipForm.dataset.applied === 'true');
+        membershipContinue.addEventListener('click', continueToPayment);
+        $('scRemoveMembership').addEventListener('click', () => changeMembership('DELETE'));
+        membershipInput.addEventListener('input', () => membershipFeedback(''));
+        membershipForm.addEventListener('submit', event => {
+            event.preventDefault();
+            const identifier = membershipInput.value.trim();
+            if (!identifier) {
+                membershipFeedback('Scan or enter a membership number or email.', true);
+                membershipInput.focus();
+                return;
+            }
+            changeMembership('POST', identifier);
+        });
+    }
 
     $('scPaymentForm').addEventListener('submit', event => {
         if ($('scPay').disabled) {
@@ -258,8 +329,6 @@
         clearTimeout(readerTimer);
     });
 
-    setMembership(null);
     setStep(1);
-    cartRequest().catch(error => notice(error.message, true));
-    pollTags();
+    cartRequest().catch(error => notice(error.message, true)).finally(pollTags);
 })();

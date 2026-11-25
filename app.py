@@ -2,18 +2,19 @@ from math import isfinite
 import os
 import secrets
 import sqlite3
+from threading import Lock
 
 from flask import Flask, abort, flash, jsonify, redirect, render_template, request, session, url_for
 
 from db import (
     add_customer,
     add_product,
-    add_product_reception,
     close_connection,
     delete_customer,
     delete_product,
     delete_product_tag,
     edit_product,
+    get_category_stock_thresholds,
     get_customer,
     get_customer_by_email,
     get_customer_by_phone,
@@ -27,15 +28,17 @@ from db import (
     get_products,
     init_db,
     mark_alerts_sent,
+    normalize_epc,
     receive_scanned_tags,
-    register_product_epc,
+    set_category_stock_threshold,
     set_sensor_thresholds,
+    undo_received_tag,
     update_customer_membership,
 )
 
 from account import account
 from auth import init_auth
-from cart import cart
+from cart import cart, cart_owner, checkout_customer
 from fan_control import get_status, init_control, stop_manually
 from gpio import indicate_failure, indicate_success
 
@@ -47,6 +50,7 @@ from reports import reports
 import tag_reader
 
 app = Flask(__name__)
+receiving_lock = Lock()
 app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 app.teardown_appcontext(close_connection)
 init_auth(app)
@@ -154,27 +158,15 @@ def inventory():
     )
 
 
-@app.route("/products/<int:product_id>", methods=["GET", "POST"])
+@app.get("/products/<int:product_id>")
 def product_detail(product_id):
     product = get_product(product_id)
     if product is None:
         flash("Product not found.", "error")
         return redirect(url_for("inventory"))
-    epc_input = ""
-    if request.method == "POST":
-        epc_input = request.form.get("epc", "")
-        try:
-            epc = register_product_epc(product_id, epc_input)
-        except ValueError as error:
-            flash(str(error), "error")
-        except sqlite3.IntegrityError:
-            flash("That EPC is already registered. Each physical item needs a unique EPC.", "error")
-        else:
-            flash(f"EPC {epc} registered to {product['name']}.", "success")
-            return redirect(url_for("product_detail", product_id=product_id))
     return render_template(
         "product_detail.html", product=product, tags=get_product_tags(product_id),
-        epc_input=epc_input, active_page="inventory",
+        active_page="inventory",
     )
 
 
@@ -260,43 +252,55 @@ def new_product():
     )
 
 
-@app.get("/api/rfid/tags")
-def rfid_tags():
-    if app.config.get("START_SERVICES", True):
-        tag_reader.ensure_started()
-    return jsonify(
-        connected=tag_reader.is_connected(),
-        error=tag_reader.get_last_error(),
-        tags=tag_reader.get_tags(),
-    )
-
-
 @app.post("/api/inventory/receive/scan")
 def receive_scanned_stock():
     data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify(error="Send a JSON object."), 400
+    if not isinstance(data, dict) or not data.keys() <= {"product_id", "after", "supplier"}:
+        return jsonify(error="Receive stock by scanning tags with the RFID reader."), 400
+
     product_id = data.get("product_id")
-    epcs = data.get("epcs")
-    if epcs is None:
-        epcs = [data.get("epc")]
-    supplier = data.get("supplier")
-    if type(product_id) is not int or product_id <= 0:
+    if type(product_id) is not int or not 0 < product_id <= 2**63 - 1:
         return jsonify(error="Select a valid product."), 400
-    if not isinstance(epcs, list) or not epcs or not all(
-        isinstance(epc, str) and epc.strip() for epc in epcs
-    ):
-        return jsonify(error="At least one EPC is required."), 400
+    supplier = data.get("supplier")
     if supplier is not None and not isinstance(supplier, str):
         return jsonify(error="Invalid supplier."), 400
-    supplier = (supplier or "").strip() or None
+    after = data.get("after")
+    if after is not None and (not isinstance(after, str) or len(after) > 20 or not after.isascii() or not after.isdecimal()):
+        return jsonify(error="Invalid scan position. Select the product again."), 400
+
+    if app.config.get("START_SERVICES", True):
+        tag_reader.ensure_started()
+    with receiving_lock:
+        connected = tag_reader.is_connected()
+        cursor, epcs = tag_reader.receive_scans(int(after) if after is not None else None)
+        if not connected or not epcs:
+            return jsonify(cursor=cursor, connected=connected, error=tag_reader.get_last_error())
+
+        result = receive_scanned_tags(product_id, epcs, (supplier or "").strip() or None)
+        if result["status"] == "missing_product":
+            return jsonify(error="Product not found."), 404
+        return jsonify(cursor=cursor, connected=True, **result)
+
+
+@app.post("/api/inventory/receive/undo")
+def undo_stock_reception():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="Select a received tag to undo."), 400
+    reception_id, epc = data.get("reception_id"), data.get("epc")
+    if type(reception_id) is not int or not 0 < reception_id <= 2**63 - 1 or not isinstance(epc, str):
+        return jsonify(error="Select a received tag to undo."), 400
     try:
-        result = receive_scanned_tags(product_id, epcs, supplier)
+        epc = normalize_epc(epc)
     except ValueError as error:
         return jsonify(error=str(error)), 400
-    if result["status"] == "missing_product":
-        return jsonify(error="Product not found."), 404
-    return jsonify(result)
+
+    with receiving_lock:
+        result = undo_received_tag(reception_id, epc)
+        if result is None:
+            return jsonify(error="This tag was already removed, sold, or received again."), 409
+        tag_reader.suppress_reception(epc)
+        return jsonify(result)
 
 
 @app.route("/products/<int:product_id>/edit", methods=["GET", "POST"])
@@ -389,32 +393,14 @@ def remove_product(product_id):
     return redirect(url_for("inventory"))
 
 
-@app.route("/inventory/receive", methods=["POST"])
-def receive_stock():
-    product_id = request.form.get("product_id", type=int)
-    quantity = request.form.get("quantity_received", type=int)
-    supplier = request.form.get("supplier", "").strip() or None
-
-    if product_id is None or get_product(product_id) is None:
-        flash("Select a valid product.", "error")
-    elif quantity is None or quantity <= 0:
-        flash("Received quantity must be greater than zero.", "error")
-    else:
-        add_product_reception(product_id, quantity, supplier)
-        flash(f"Received {quantity} item(s) into inventory.", "success")
-
-    return redirect(url_for("inventory"))
-
-
 @app.route("/checkout")
 def checkout():
-    session.pop("checkout_customer_id", None)
-    session.pop("checkout_membership_number", None)
-    return render_template(
-        "checkout.html",
-        active_page="checkout",
-        checkout_customer=None,
-    )
+    cart_owner()
+    response = app.make_response(render_template(
+        "checkout.html", active_page="checkout", checkout_customer=checkout_customer()
+    ))
+    response.cache_control.no_store = True
+    return response
 
 
 @app.route("/fridges")
@@ -428,27 +414,44 @@ def storage_history():
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
     thresholds = {row["name"]: dict(row) for row in get_fridge_thresholds()}
+    status = 200
     if request.method == "POST":
-        name = request.form.get("name")
-        if name not in thresholds:
-            abort(400)
-        try:
-            temperature = float(request.form.get("temp_threshold", ""))
-            humidity = float(request.form.get("humid_threshold", ""))
-            if not isfinite(temperature) or not 0 <= humidity <= 100:
-                raise ValueError
-        except ValueError:
-            flash("Enter a valid temperature and a humidity between 0 and 100%.", "error")
-            return render_template(
-                "settings.html", thresholds=thresholds.values(), active_page="settings"
-            ), 400
-        set_sensor_thresholds(name, temperature, humidity)
-        flash(f"Thresholds saved for {name}.", "success")
-        return redirect(url_for("settings"))
+        if request.form.get("setting") == "stock":
+            try:
+                limit = int(request.form.get("stock_threshold", ""))
+                if not 0 <= limit <= 2**63 - 1:
+                    raise ValueError
+            except ValueError:
+                flash("Enter a non-negative whole number for the low-stock limit.", "error")
+                status = 400
+            else:
+                category = request.form.get("category")
+                if not set_category_stock_threshold(category, limit):
+                    abort(400, "Select an existing product category.")
+                flash(f"Low-stock limit saved for {category}.", "success")
+                return redirect(url_for("settings", _anchor="stock-thresholds"))
+        else:
+            name = request.form.get("name")
+            if name not in thresholds:
+                abort(400)
+            try:
+                temperature = float(request.form.get("temp_threshold", ""))
+                humidity = float(request.form.get("humid_threshold", ""))
+                if not isfinite(temperature) or not 0 <= humidity <= 100:
+                    raise ValueError
+            except ValueError:
+                flash("Enter a valid temperature and a humidity between 0 and 100%.", "error")
+                status = 400
+            else:
+                set_sensor_thresholds(name, temperature, humidity)
+                flash(f"Thresholds saved for {name}.", "success")
+                return redirect(url_for("settings"))
 
     return render_template(
-        "settings.html", thresholds=thresholds.values(), active_page="settings"
-    )
+        "settings.html", thresholds=thresholds.values(),
+        stock_thresholds=get_category_stock_thresholds(), active_page="settings",
+    ), status
+
 
 @app.route("/profile")
 def profile():

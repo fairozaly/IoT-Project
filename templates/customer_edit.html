@@ -19,8 +19,10 @@
             <div class="field full">
                 <label for="membership_number">Membership number <span class="required">*</span></label>
                 <input id="membership_number" name="membership_number" type="text" maxlength="64"
-                       value="{{ request.form.get('membership_number', customer['membership_number']) }}"
-                       autocomplete="off" required autofocus>
+                       value="{{ request.form.get('membership_number', customer['membership_number'] or '') }}"
+                       autocomplete="off" required autofocus
+                       aria-describedby="membership-help">
+                <p id="membership-help">Scan the membership barcode or type the number to assign it to this customer.</p>
             </div>
             <div class="form-actions">
                 <a class="btn btn-secondary" href="{{ url_for('customers') }}">Cancel</a>

@@ -1,0 +1,73 @@
+{% extends "account_layout.html" %}
+{% block account_title %}Product price history{% endblock %}
+{% block account_content %}
+  <div class="section-panel" id="price-history">
+    <h2>Search your purchases</h2>
+    {% if products or product_search %}
+    <div class="section-heading">
+      <p>Find an item to see when you bought it and how its price changed.</p>
+      <button class="btn btn-secondary report-print" type="button" data-print-report>Print / Save as PDF</button>
+    </div>
+    <form method="get" action="{{ url_for('account.product_history') }}" class="report-actions">
+      <div class="field">
+        <label for="history-search">Search purchased products</label>
+        <input type="search" id="history-search" name="product_search" value="{{ product_search }}" placeholder="Product name or ID">
+      </div>
+      <button class="btn btn-secondary">Search</button>
+    </form>
+    {% endif %}
+    {% if products %}
+    <form method="get" action="{{ url_for('account.product_history') }}" class="report-actions">
+      {% if product_search %}<input type="hidden" name="product_search" value="{{ product_search }}">{% endif %}
+      <div class="field"><label for="history-product">Product</label>
+        <select name="product_id" id="history-product" required>
+          <option value="">Choose a product</option>
+          {% for option in products %}
+          <option value="{{ option.product_id }}" {% if product and option.product_id == product.product_id %}selected{% endif %}>{{ option.name }} (#{{ option.product_id }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-secondary">Show price history</button>
+    </form>
+    {% elif product_search %}
+    <p>No purchased products match your search.</p>
+    {% else %}
+    <p>Your purchased products will appear here after checkout.</p>
+    {% endif %}
+    {% if history %}
+    <div class="section-heading">
+      <h3>{{ product.name }}</h3>
+      <a class="btn btn-secondary report-print" href="{{ url_for('account.product_history', product_id=product.product_id, format='prices') }}">Download price history CSV</a>
+    </div>
+    <p>{{ purchase_count }} purchases · {{ units_purchased }} units · All purchase dates</p>
+    <svg class="price-history-chart" viewBox="0 0 600 155" role="img" aria-label="Unit prices by purchase, in chronological order. Exact prices and changes are in the table below.">
+      <path d="M20 14V122H580" fill="none" stroke="currentColor" opacity=".35"/>
+      <polyline fill="none" stroke="currentColor" stroke-width="2"
+        points="{% for row in history %}{{ row.x }},{{ row.y }} {% endfor %}"/>
+      {% for row in history %}
+      <circle cx="{{ row.x }}" cy="{{ row.y }}" r="4" fill="currentColor">
+        <title>{{ row.transaction_date|localtime }} · ${{ '%.2f'|format(row.price_at_sale) }}</title>
+      </circle>
+      {% endfor %}
+      <text x="300" y="148" text-anchor="middle" fill="currentColor">Purchase order →</text>
+    </svg>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Purchase time</th><th>Quantity</th><th>Unit price</th><th>Change from previous purchase</th></tr></thead>
+        <tbody>
+          {% for row in history %}
+          <tr>
+            <td><a href="{{ url_for('account.receipt', transaction_id=row.transaction_id) }}">{{ row.transaction_date|localtime }}</a></td>
+            <td>{{ row.quantity }}</td><td>${{ '%.2f'|format(row.price_at_sale) }}</td>
+            <td>{{ '%+.2f'|format(row.change) ~ ' CAD' if row.change is not none else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/reports.js') }}" defer></script>
+{% endblock %}

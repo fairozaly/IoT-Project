@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 
-from db import get_db
+from db import get_customer, get_db
 from receipts import LOCAL_TZ, get_receipt, send_receipt_email, to_local
 from reports import csv_download, date_range
 
@@ -24,15 +24,27 @@ def customer_middleware(view):
 @account.route("/account")
 @customer_middleware
 def overview():
-    customer_id = session["customer_id"]
-    db = get_db()
+    # Keep links made before the portal split working.
+    export = request.args.get("format")
+    if export == "receipts":
+        return receipt_history()
+    if export == "prices" or "product_id" in request.args or "product_search" in request.args:
+        return product_history()
+    if "start" in request.args or "end" in request.args:
+        return receipt_history()
 
-    customer = db.execute(
-        "SELECT * FROM Customers WHERE customer_id = ?", (customer_id,)
-    ).fetchone()
+    customer = get_customer(session["customer_id"])
     if customer is None:
         abort(404)
+    return render_template("account.html", customer=customer,
+                           active_page="account", account_page="membership")
 
+
+@account.get("/account/receipts")
+@customer_middleware
+def receipt_history():
+    customer_id = session["customer_id"]
+    db = get_db()
     first_purchase = db.execute(
         "SELECT MIN(transaction_date) FROM Transactions "
         "WHERE customer_id = ? AND status = 'completed'", (customer_id,),
@@ -69,6 +81,25 @@ def overview():
              for index, item in enumerate(purchase["items"] or [purchase])),
         )
 
+    daily_spending = {}
+    for purchase in purchases.values():
+        day = to_local(purchase["transaction_date"])[:10]
+        cents = round(purchase["total_amount"] * 100)
+        daily_spending[day] = daily_spending.get(day, 0) + cents
+
+    return render_template(
+        "account_receipts.html", purchases=purchases.values(),
+        total_spent=sum(daily_spending.values()) / 100,
+        daily_spending=sorted(daily_spending.items()),
+        start=start, end=end, active_page="account", account_page="receipts",
+    )
+
+
+@account.get("/account/products")
+@customer_middleware
+def product_history():
+    customer_id = session["customer_id"]
+    db = get_db()
     products = db.execute(
         """
         SELECT DISTINCT p.product_id, p.name
@@ -78,6 +109,11 @@ def overview():
         ORDER BY p.name, p.product_id
         """, (customer_id,),
     ).fetchall()
+    product_search = request.args.get("product_search", "").strip()
+    if product_search:
+        search = product_search.casefold()
+        products = [row for row in products if search in row["name"].casefold()
+                    or search == str(row["product_id"])]
     product_id = request.args.get("product_id", type=int)
     product = next((row for row in products if row["product_id"] == product_id), None)
     history = purchase_price_history(db, customer_id, product_id) if product else []
@@ -92,12 +128,11 @@ def overview():
               row["quantity"], row["price_at_sale"], row["change"]) for row in history),
         )
     return render_template(
-        "account.html", customer=customer, purchases=purchases.values(),
-        total_spent=sum(p["total_amount"] for p in purchases.values()),
-        products=products, product=product, history=history,
+        "account_product_history.html",
+        products=products, product=product, product_search=product_search, history=history,
         purchase_count=len({row["transaction_id"] for row in history}),
         units_purchased=sum(row["quantity"] for row in history),
-        start=start, end=end, active_page="account",
+        active_page="account", account_page="products",
     )
 
 
