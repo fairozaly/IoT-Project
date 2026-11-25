@@ -2698,3 +2698,19 @@ body.dark-mode .product-detail-media {
 .sc-member-form[hidden] {
     display: none;
 }
+
+.report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+    margin-block: 12px;
+}
+
+.price-history-chart {
+    display: block;
+    width: 100%;
+    max-width: 42rem;
+    color: var(--blue);
+    margin-block: 12px;
+}

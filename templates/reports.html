@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block header_title %}Reports{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="page-heading"><h1>Reports</h1></div>
+  <nav class="report-actions" aria-label="Report type">
+    {% for key, title in [('inventory', 'Inventory'), ('sales', 'Sales'), ('customers', 'Customer activity')] %}
+    <a class="btn {{ 'btn-primary' if report == key else 'btn-secondary' }}"
+       href="{{ url_for('reports.overview', report=key) }}" {% if report == key %}aria-current="page"{% endif %}>{{ title }}</a>
+    {% endfor %}
+  </nav>
+  <div class="section-panel">
+    {% if report == 'inventory' %}
+    <div class="section-heading"><h2>Available inventory</h2><small id="inventory-refresh">Updates every 3 seconds</small></div>
+    <form method="get" class="report-actions">
+      <div class="field"><label for="category">Category</label>
+        <select name="category" id="category">
+          <option value="">All categories</option>
+          {% for option in categories %}
+          <option value="{{ option.category }}" {% if option.category == category %}selected{% endif %}>{{ option.category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-secondary">Apply</button>
+    </form>
+    <div id="inventory-report">{% include "_report_inventory.html" %}</div>
+    {% else %}
+    <h2>{{ 'Sales performance' if report == 'sales' else 'Customer activity' }}</h2>
+    <form method="get" class="report-actions">
+      <input type="hidden" name="report" value="{{ report }}">
+      {% include "_report_dates.html" %}
+      {% if report == 'sales' %}
+      <div class="field"><label for="limit">Products per ranking</label>
+        <input type="number" name="limit" id="limit" min="1" max="50" value="{{ limit }}" required>
+      </div>
+      {% endif %}
+      <button class="btn btn-secondary">Apply</button>
+    </form>
+    <p>{{ start }} to {{ end }} · Montreal time</p>
+    {% if report == 'sales' %}
+    <p><strong>Total sales:</strong> ${{ '%.2f'|format(sales.revenue) }} across {{ sales.transactions }} purchases</p>
+    <div class="form-grid">
+      {% for title, ranking in [('Most sold', top), ('Least sold', bottom)] %}
+      <div><h3>{{ title }}</h3>
+        <ol>{% for product in ranking %}<li>{{ product.name }} · {{ product.sold }} units</li>
+        {% else %}<li>No products sold in this period.</li>{% endfor %}</ol>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Product</th><th>Product ID</th><th>Units sold</th></tr></thead>
+        <tbody>
+          {% for product in products %}<tr><td>{{ product.name }}</td><td>{{ product.product_id }}</td><td>{{ product.sold }}</td></tr>
+          {% else %}<tr><td colspan="3">No products sold in this period.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p><strong>{{ total }}</strong> unique customers · <strong>{{ new }}</strong> new · <strong>{{ returning }}</strong> returning</p>
+    <p>Busiest days had <strong>{{ busiest }}</strong> customers and quietest days had <strong>{{ quietest }}</strong>.</p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Day</th><th>Unique customers</th><th>Activity</th></tr></thead>
+        <tbody>
+          {% for day, count in daily %}
+          <tr><td>{{ day }}</td><td>{{ count }}</td>
+            <td>{{ 'Busiest and quietest (tie)' if count == busiest == quietest else 'Busiest' if count == busiest else 'Quietest' if count == quietest else '—' }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{% if report == 'inventory' %}<script src="{{ url_for('static', filename='js/reports.js') }}" defer></script>{% endif %}
+{% endblock %}

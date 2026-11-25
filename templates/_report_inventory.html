@@ -1,0 +1,16 @@
+<div class="table-wrap">
+  <table class="data-table">
+    <thead><tr><th>Product</th><th>Product ID</th><th>Category</th><th>Available</th><th>Last restocked</th></tr></thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td>{{ product.name }}</td><td>{{ product.product_id }}</td><td>{{ product.category }}</td>
+        <td>{{ product.quantity }}</td>
+        <td>{{ product.last_restocked|localtime if product.last_restocked else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">No products match this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

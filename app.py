@@ -44,6 +44,7 @@ from fan import stop_fan
 
 from mqtt import setup_mqtt
 from pareto import latest_fridge
+from reports import reports
 import tag_reader
 
 app = Flask(__name__)
@@ -52,6 +53,7 @@ app.teardown_appcontext(close_connection)
 init_auth(app)
 app.register_blueprint(cart)
 app.register_blueprint(account)
+app.register_blueprint(reports)
 
 @app.route("/", endpoint="index")
 @app.route("/customers")

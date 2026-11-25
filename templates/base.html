@@ -88,6 +88,10 @@
         </span>
         <span>Inventory</span>
       </a>
+      <a class="side-link {% if active_page == 'reports' %}active{% endif %}" href="{{ url_for('reports.overview') }}" {% if active_page == 'reports' %}aria-current="page"{% endif %}>
+        <span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3v18h18M7 16v-5m5 5V7m5 9v-8"/></svg></span>
+        <span>Reports</span>
+      </a>
       <a class="side-link {% if active_page == 'scan_test' %}active{% endif %}" href="{{ url_for('scan_test') }}" {% if active_page == 'scan_test' %}aria-current="page"{% endif %}>
         <span class="side-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
