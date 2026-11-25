@@ -16,9 +16,15 @@
   <div class="fd-cards" id="fd-cards" aria-live="polite">
     {% for reading in fridges %}
     <article class="fd-fridge" data-fridge="{{ reading['name']|e }}">
-      <div class="fd-fridge-head"><div class="fd-name"><span class="fd-icon" aria-hidden="true">▦</span><h2>{{ reading['name'] }}</h2></div><span class="fd-status">DATA AVAILABLE</span></div>
-      <div class="fd-metrics"><div class="fd-metric"><span>Temperature</span><strong>{{ '%.1f'|format(reading['temperature']) }} <small>°C</small></strong></div><div class="fd-metric"><span>Humidity</span><strong>{{ '%.1f'|format(reading['humidity']) }} <small>%</small></strong></div></div>
+      <div class="fd-fridge-head"><div class="fd-name"><span class="fd-icon" aria-hidden="true">▦</span><h2>{{ reading['name'] }}</h2></div><span class="fd-status">{{ 'ABOVE THRESHOLD' if reading.above_threshold else 'DATA AVAILABLE' }}</span></div>
+      <div class="fd-metrics"><div class="fd-metric"><span>Temperature</span><strong>{{ '%.1f'|format(reading.temperature) if reading.temperature is not none else '—' }} <small>°C</small></strong></div><div class="fd-metric"><span>Humidity</span><strong>{{ '%.1f'|format(reading.humidity) if reading.humidity is not none else '—' }} <small>%</small></strong></div></div>
+      {% if reading.bluetooth %}
+      <div class="fd-meta"><span>Fan status</span><strong>Unavailable</strong></div>
+      <div class="fd-meta"><span>Motion</span><strong>{{ 'Unknown' if reading.motion is none else ('Detected' if reading.motion else 'Clear') }}</strong></div>
+      <div class="fd-meta"><span>Battery</span><strong>{{ 'Unknown' if reading.battery is none else reading.battery ~ ' %' }}</strong></div>
+      {% else %}
       <div class="fd-meta"><span>Fan status</span><strong class="fd-fan-status">Unknown</strong></div>
+      {% endif %}
     </article>
     {% else %}
     <div class="fd-empty">No refrigerator readings yet.</div>

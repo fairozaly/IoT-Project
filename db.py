@@ -443,6 +443,13 @@ def set_sensor_thresholds(name, temp_threshold, humid_threshold):
     db.commit()
 
 
+def get_fridge_thresholds():
+    return get_db().execute(
+        "SELECT name, temp_threshold, humid_threshold FROM Sensors "
+        "WHERE name IN ('Frig1', 'Frig2', 'Fridge 3') ORDER BY sensor_id"
+    ).fetchall()
+
+
 def get_sensor_thresholds(sensor_id):
     db = get_db()
     return db.execute(
@@ -623,6 +630,11 @@ def init_db(app):
         migrate_product_images(db)
         migrate_stock_to_tags(db)
         migrate_sensor_thresholds(db)
+        db.executemany(
+            "INSERT INTO Sensors (name, location, temp_threshold, humid_threshold) "
+            "SELECT ?, ?, 25.0, 70.0 WHERE NOT EXISTS (SELECT 1 FROM Sensors WHERE name = ?)",
+            [(name, name, name) for name in ("Frig1", "Frig2", "Fridge 3")],
+        )
         db.commit()
 
 

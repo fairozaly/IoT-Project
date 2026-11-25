@@ -11,13 +11,27 @@
         </div>
     </div>
     <div class="section-panel">
-        <div class="setting-row">
+        <h2>Fridge thresholds</h2>
+        <p>Readings at or above these limits are flagged. Fridge 3 shows threshold warnings on Storage Overview.</p>
+        {% for fridge in thresholds %}
+        <form method="post" class="setting-row">
+            <input type="hidden" name="name" value="{{ fridge.name }}">
             <div>
-                <h3>Monitoring preferences</h3>
-                <p>Threshold and sensor configuration require backend support.</p>
+                <h3>{{ fridge.name }}</h3>
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="{{ fridge.name|replace(' ', '-') }}-temp_threshold">Temperature limit (°C)</label>
+                        <input id="{{ fridge.name|replace(' ', '-') }}-temp_threshold" type="number" name="temp_threshold" step="any" value="{{ fridge.temp_threshold }}" required>
+                    </div>
+                    <div class="field">
+                        <label for="{{ fridge.name|replace(' ', '-') }}-humid_threshold">Humidity limit (%)</label>
+                        <input id="{{ fridge.name|replace(' ', '-') }}-humid_threshold" type="number" name="humid_threshold" min="0" max="100" step="any" value="{{ fridge.humid_threshold }}" required>
+                    </div>
+                </div>
             </div>
-            <span class="setting-tag neutral">to be integrated</span>
-        </div>
+            <button type="submit" class="btn btn-primary">Save {{ fridge.name }} thresholds</button>
+        </form>
+        {% endfor %}
     </div>
-    </section>
+</section>
 {% endblock %}

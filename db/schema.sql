@@ -155,3 +155,11 @@ CREATE TABLE IF NOT EXISTS CartItems (
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS ParetoMetrics (
+    device TEXT NOT NULL,
+    metric TEXT NOT NULL,
+    value TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    PRIMARY KEY (device, metric)
+);

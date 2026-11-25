@@ -111,7 +111,8 @@
         const icon = el('span', 'fd-icon', '▦');
         icon.setAttribute('aria-hidden', 'true');
         name.append(icon, el('h2', '', item.name));
-        head.append(name, el('span', 'fd-status', 'DATA AVAILABLE'));
+        const status = el('span', 'fd-status');
+        head.append(name, status);
         article.appendChild(head);
         const temperature = metric('Temperature', '°C', 50, [0, 10, 20, 30, 40, 50]);
         const humidity = metric('Humidity', '%', 100, [0, 20, 40, 60, 80, 100]);
@@ -119,18 +120,36 @@
         metrics.append(temperature.element, humidity.element);
         article.appendChild(metrics);
         const fanMeta = el('div', 'fd-meta');
-        fanMeta.append(el('span', '', 'Fan status'), el('strong', 'fd-fan-status', 'Unknown'));
+        const fanLabel = item.bluetooth ? 'Unavailable' : 'Unknown';
+        const fan = el('strong', item.bluetooth ? '' : 'fd-fan-status', fanLabel);
+        fanMeta.append(el('span', '', 'Fan status'), fan);
         article.appendChild(fanMeta);
+        card = {element: article, temperature, humidity, fan, status};
+        if (item.bluetooth) {
+          const motionRow = el('div', 'fd-meta');
+          const batteryRow = el('div', 'fd-meta');
+          card.motion = el('strong');
+          card.battery = el('strong');
+          motionRow.append(el('span', '', 'Motion'), card.motion);
+          batteryRow.append(el('span', '', 'Battery'), card.battery);
+          article.append(motionRow, batteryRow);
+        }
         grid.appendChild(article);
-        card = {element: article, temperature: temperature, humidity: humidity};
         cards.set(item.name, card);
       }
+      card.status.textContent = item.above_threshold ? 'ABOVE THRESHOLD' : 'DATA AVAILABLE';
       updateMetric(card.temperature, item.temperature);
       updateMetric(card.humidity, item.humidity);
-      card.element.querySelector('.fd-fan-status').textContent = fanRunning === null ? 'Unknown' : (fanRunning ? 'Running' : 'Stopped');
+      if (item.bluetooth) {
+        card.motion.textContent = item.motion === null ? 'Unknown' : (item.motion ? 'Detected' : 'Clear');
+        card.battery.textContent = Number.isFinite(item.battery) ? item.battery + ' %' : 'Unknown';
+      } else {
+        card.fan.textContent = fanRunning === null ? 'Unknown' : (fanRunning ? 'Running' : 'Stopped');
+      }
     });
   }
   function readingTime(timestamp) {
+    if (typeof timestamp === 'number') return timestamp;
     if (!timestamp) return NaN;
     let text = String(timestamp).replace(' ', 'T');
     if (!/([zZ]|[+-]\d{2}:?\d{2})$/.test(text)) text += 'Z';
@@ -139,11 +158,12 @@
 
   function record(readings) {
     readings.forEach(function (item) {
+      if (item.reading_id === null) return;
       if (!history.has(item.name)) history.set(item.name, []);
       const samples = history.get(item.name);
       const last = samples[samples.length - 1];
       if (last && last.reading_id === item.reading_id) return;
-      const time = readingTime(item.timestamp);
+      const time = readingTime(item.bluetooth ? item.reading_id : item.timestamp);
       samples.push({
         time: Number.isFinite(time) ? new Date(time) : new Date(),
         reading_id: item.reading_id,

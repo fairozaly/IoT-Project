@@ -8,34 +8,13 @@ from db import (
     create_alert,
     get_or_create_sensor,
     get_sensor_thresholds,
-    set_sensor_thresholds,
 )
 
 from fan_control import update_sensor
+from pareto import TOPIC as PARETO_TOPIC, store_message
 
 MQTT_SERVER_ADDRESS = os.getenv("MQTT_HOST", "127.0.0.1")
 MQTT_SERVER_PORT = int(os.getenv("MQTT_PORT", "1883"))
-
-FRIDGE_THRESHOLDS = {
-    "Frig1": {
-        "temp_threshold": 25.0,
-        "humid_threshold": 70.0,
-    },
-    "Frig2": {
-        "temp_threshold": 25.0,
-        "humid_threshold": 70.0,
-    },
-}
-
-
-def configure_fridge_thresholds():
-    for name, limits in FRIDGE_THRESHOLDS.items():
-        set_sensor_thresholds(
-            name,
-            limits["temp_threshold"],
-            limits["humid_threshold"],
-        )
-        print(f"Configured thresholds for {name}: {limits}")
 
 
 def check_thresholds(sensor_id, reading_id, temperature, humidity):
@@ -61,6 +40,7 @@ def on_connect_mqtt(client, userdata, flags, reason_code, properties):
     print(f"Connected with result code {reason_code}")
 
     client.subscribe("SmartHome/#")
+    client.subscribe(PARETO_TOPIC)
 
 
 def on_disconnect_mqtt(client, userdata, flags, reason_code, properties):
@@ -90,15 +70,22 @@ def on_message_mqtt(client, userdata, message):
         print(f"Failed to handle message on {message.topic}: {error!r}")
 
 
-def setup_mqtt(app):
+def on_pareto_message(client, userdata, message):
+    app = client._flask_app
     with app.app_context():
-        configure_fridge_thresholds()
+        try:
+            store_message(message.topic, message.payload)
+        except Exception:
+            app.logger.exception("Failed to store Pareto Anywhere reading")
 
+
+def setup_mqtt(app):
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client._flask_app = app
     client.on_connect = on_connect_mqtt
     client.on_disconnect = on_disconnect_mqtt
     client.on_message = on_message_mqtt
+    client.message_callback_add(PARETO_TOPIC, on_pareto_message)
     client.reconnect_delay_set(min_delay=1, max_delay=30)
 
     client.connect_async(MQTT_SERVER_ADDRESS, MQTT_SERVER_PORT)

@@ -1,3 +1,4 @@
+from math import isfinite
 import os
 import secrets
 import sqlite3
@@ -17,6 +18,7 @@ from db import (
     get_customer_by_email,
     get_customer_by_phone,
     get_customers,
+    get_fridge_thresholds,
     get_latest_readings,
     get_pending_alerts,
     get_product,
@@ -28,6 +30,7 @@ from db import (
     mark_alerts_sent,
     receive_scanned_tags,
     register_product_epc,
+    set_sensor_thresholds,
     update_customer_membership,
 )
 
@@ -40,6 +43,7 @@ from gpio import indicate_failure, indicate_success
 from fan import stop_fan
 
 from mqtt import setup_mqtt
+from pareto import latest_fridge
 import tag_reader
 
 app = Flask(__name__)
@@ -445,15 +449,36 @@ def checkout():
 
 @app.route("/fridges")
 def fridges():
-    return render_template("fridges.html", fridges=get_latest_readings(), active_page="fridges")
+    return render_template("fridges.html", fridges=storage_readings(), active_page="fridges")
 
 @app.route("/storage-history")
 def storage_history():
     return render_template("storage_history.html", active_page="storage_history")
 
-@app.route("/settings")
+@app.route("/settings", methods=["GET", "POST"])
 def settings():
-    return render_template("settings.html", active_page="settings")
+    thresholds = {row["name"]: dict(row) for row in get_fridge_thresholds()}
+    if request.method == "POST":
+        name = request.form.get("name")
+        if name not in thresholds:
+            abort(400)
+        try:
+            temperature = float(request.form.get("temp_threshold", ""))
+            humidity = float(request.form.get("humid_threshold", ""))
+            if not isfinite(temperature) or not 0 <= humidity <= 100:
+                raise ValueError
+        except ValueError:
+            flash("Enter a valid temperature and a humidity between 0 and 100%.", "error")
+            return render_template(
+                "settings.html", thresholds=thresholds.values(), active_page="settings"
+            ), 400
+        set_sensor_thresholds(name, temperature, humidity)
+        flash(f"Thresholds saved for {name}.", "success")
+        return redirect(url_for("settings"))
+
+    return render_template(
+        "settings.html", thresholds=thresholds.values(), active_page="settings"
+    )
 
 @app.route("/profile")
 def profile():
@@ -494,9 +519,26 @@ def api_stop_fan():
     stop_manually()
     return jsonify(get_status())
 
+def storage_readings():
+    readings = [dict(reading) for reading in get_latest_readings()]
+    bluetooth_fridge = latest_fridge()
+    if bluetooth_fridge is not None:
+        limits = next(row for row in get_fridge_thresholds() if row["name"] == "Fridge 3")
+        bluetooth_fridge["above_threshold"] = any(
+            bluetooth_fridge[measurement] is not None
+            and bluetooth_fridge[measurement] >= limits[limit]
+            for measurement, limit in (
+                ("temperature", "temp_threshold"), ("humidity", "humid_threshold")
+            )
+        )
+        readings.append(bluetooth_fridge)
+    return readings
+
+
 @app.route("/api/readings")
 def api_readings():
-    return jsonify([dict(reading) for reading in get_latest_readings()])
+    return jsonify(storage_readings())
+
 
 def create_app(test_config=None):
     app.config["START_SERVICES"] = True
