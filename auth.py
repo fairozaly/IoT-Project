@@ -10,11 +10,6 @@ from flask import flash
 
 auth = Blueprint("auth", __name__)
 
-@app.before_request
-def require_signin():
-    if request.endpoint == "checkout":
-        return None
-
 def sign_in(user):
     session.clear()
     session["user_id"] = user["user_id"]
@@ -119,21 +114,61 @@ def init_auth(app):
     app.register_blueprint(auth)
     app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
+    # @app.before_request
+    # def require_signin():
+    #     if request.endpoint == "checkout":
+    #         return None
+    #     if request.endpoint == "auth.customer_signup":
+    #         return None
+    #     if request.endpoint in ("static", "auth.signin", "auth.signup"):
+    #         return None
+    #     if not session.get("user_id"):
+    #         if request.path.startswith("/api/") or request.path == "/alerts":
+    #             return jsonify({"error": "Please sign in."}), 401
+    #         return redirect(url_for("auth.signin"))
+    #     if session.get("customer_id") is not None:
+    #         customer_pages = ["account.overview", "account.receipt", "account.email_receipt",
+    #                             "checkout", "cart.current_cart", "cart.add_item",
+    #                             "cart.update_item", "cart.complete_checkout",
+    #                             "cart.scan_tags", "cart.membership", "auth.signout"]
+    #         if request.endpoint not in customer_pages:
+    #             if request.path.startswith("/api/") or request.path == "/alerts":
+    #                 return jsonify({"error": "Not allowed for customer accounts."}), 403
+    #             return redirect(url_for("account.overview"))
+
     @app.before_request
     def require_signin():
-        if request.endpoint == "auth.customer_signup":
+        public_endpoints = [
+            "index",
+            "checkout",
+            "auth.signin",
+            "auth.signup",
+            "auth.customer_signup",
+            "static"
+        ]
+
+        if request.endpoint in public_endpoints:
             return None
-        if request.endpoint in ("static", "auth.signin", "auth.signup"):
-            return None
+
         if not session.get("user_id"):
             if request.path.startswith("/api/") or request.path == "/alerts":
-                return jsonify({"error": "Please sign in."}), 401
+                return jsonify({"error": "Please sign in."}), 401 
             return redirect(url_for("auth.signin"))
+
         if session.get("customer_id") is not None:
-            customer_pages = ["account.overview", "account.receipt", "account.email_receipt",
-                                "checkout", "cart.current_cart", "cart.add_item",
-                                "cart.update_item", "cart.complete_checkout",
-                                "cart.scan_tags", "cart.membership", "auth.signout"]
+            customer_pages = [
+                "account.overview",
+                "account.receipt",
+                "account.email_receipt",
+                "checkout",
+                "cart.current_cart",
+                "cart.add_item",
+                "cart.update_item",
+                "cart.complete_checkout",
+                "cart.scan_tags",
+                "cart.membership",
+                "auth.signout"
+            ]
             if request.endpoint not in customer_pages:
                 if request.path.startswith("/api/") or request.path == "/alerts":
                     return jsonify({"error": "Not allowed for customer accounts."}), 403

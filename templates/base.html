@@ -24,7 +24,7 @@
           FR
         </button>
       </div>
-      {% if session.get('user_id') %}
+      {% if session.get('user_id') or not session.get('user_id') %}
       <span class="account-email">{{ session['email'] }}</span>
       <form method="post" action="{{ url_for('auth.signout') }}">
         <button class="btn btn-secondary" type="submit">Sign out</button>

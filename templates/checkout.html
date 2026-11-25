@@ -2,10 +2,10 @@
 {% block title %}Self-Checkout{% endblock %}
 {% block header_title %}Self-Checkout{% endblock %}
 {% block body_class %}checkout-page{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/checkout.css') }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">{% endblock %}
 {% block content %}
 <div class="sc-shell" id="selfCheckout" data-member="{{ 'true' if session.get('customer_id') else 'false' }}" data-member-number="{{ checkout_customer['membership_number'] if checkout_customer is defined and checkout_customer else '' }}">
-  <header class="sc-heading"><div><p class="sc-eyebrow">SMART STORE / SELF-SERVICE</p><h1>Self-Checkout</h1><p>Place your RFID-tagged products near the reader to begin.</p></div><div class="sc-heading-actions"><label class="sc-lang-label" for="scLanguage">Language / Langue</label><select id="scLanguage" class="sc-language" aria-label="Language / Langue"><option value="en">English</option><option value="fr">Français</option></select><span class="sc-session"><span class="sc-live-dot"></span> Checkout session</span></div></header>
+  <header class="sc-heading"><div><p class="sc-eyebrow">SMART STORE / SELF-SERVICE</p><h1>Self-Checkout</h1><p>Place your RFID-tagged products near the reader to begin.</p></div><span class="sc-session"><span class="sc-live-dot"></span> Checkout session</span></div></header>
   <div class="sc-steps" aria-label="Checkout progress"><span class="sc-step is-active" data-step="1"><b>1</b> Scan items</span><span class="sc-step" data-step="2"><b>2</b> Membership</span><span class="sc-step" data-step="3"><b>3</b> Review</span><span class="sc-step" data-step="4"><b>4</b> Payment</span></div>
   <div class="sc-layout">
     <div class="sc-left">
@@ -21,7 +21,7 @@
       <div class="sc-panel-title"><div><h2>Membership</h2><p>Optional loyalty rewards</p></div></div>
       <div class="sc-member-status" id="scMemberStatus" aria-live="polite">
         <span class="sc-member-icon">★</span>
-        <span><strong id="scMemberTitle">{% if session.get('customer_id') %}Signed-in customer{% else %}Guest checkout{% endif %}</strong><small id="scMemberDetails">{% if session.get('customer_id') %}Your account is recognized. Membership is applied when the server associates it with this cart.{% else %}Scan a membership card or skip this step.{% endif %}</small></span>
+        <span><strong id="scMemberTitle">{% if session.get('customer_id') %}Signed-in customer{% else %}Guest checkout{% endif %}</strong><small id="scMemberDetails">{% if session.get('customer_id') %}Your account is recognized. Membership is applied when the server associates it with this cart.{% else %}Scan a membership card{% endif %}</small></span>
       </div>
       {% if not session.get('customer_id') %}
       <form id="scMemberForm" class="sc-member-form" autocomplete="off">
@@ -32,7 +32,6 @@
       </form>
       {% endif %}
       <div class="sc-member-actions"><button type="button" class="sc-btn sc-btn-primary" id="scMembershipContinue" disabled>Continue to review</button></div>
-      <p class="sc-small">Guests may continue without a membership. Physical card scans must enter a membership number via a compatible reader or backend.</p>
     </section>
     <section class="sc-panel sc-flow" id="scPaymentSection" aria-labelledby="scPaymentTitle">
       <div class="sc-panel-title"><div><h2 id="scPaymentTitle">Payment Simulation</h2><p>Select a payment method to finish your order.</p></div><span class="sc-pill">Demo only</span></div>
