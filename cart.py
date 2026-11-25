@@ -1,18 +1,19 @@
 """Persistent, user-owned shopping carts. Stock is checked but not reserved."""
 from decimal import Decimal, ROUND_HALF_UP
 
-from flask import Blueprint, flash, jsonify, redirect, request, session, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, request, session, url_for
 
 import loyalty
 import receipts
-from db import get_db
+import tag_reader
+from db import get_customer_by_membership_number, get_db, normalize_epc
 
 cart = Blueprint("cart", __name__)
 
 
 def cart_snapshot(database, user_id):
     rows = database.execute(
-        "SELECT p.product_id, p.name, p.upc AS barcode, p.price, "
+        "SELECT p.product_id, p.name, p.upc AS barcode, p.price, p.image_url, "
         "p.quantity AS stock, c.quantity FROM CartItems c "
         "JOIN Products p ON p.product_id = c.product_id "
         "WHERE c.user_id = ? ORDER BY p.name, p.product_id", (user_id,)
@@ -39,6 +40,7 @@ def current_cart():
     if request.method == "DELETE":
         database.execute("DELETE FROM CartItems WHERE user_id = ?", (user_id,))
         database.commit()
+        session.pop("checkout_epcs", None)
     return jsonify(cart_snapshot(database, user_id))
 
 
@@ -59,6 +61,14 @@ def change_item(product_id=None):
     quantity = 0 if request.method == "DELETE" else data.get("quantity", 1 if product_id is None else None)
     if type(quantity) is not int or quantity < 0 or quantity > 2147483647 or (product_id is None and quantity == 0):
         return jsonify(error="Quantity must be a valid whole number."), 400
+    epc = data.get("epc") if request.method == "POST" else None
+    if epc is not None:
+        if not isinstance(epc, str):
+            return jsonify(error="Invalid EPC."), 400
+        try:
+            epc = normalize_epc(epc)
+        except ValueError as error:
+            return jsonify(error=str(error)), 400
     if product_id is None:
         supplied_id = data.get("product_id")
         barcode = data.get("barcode")
@@ -98,17 +108,71 @@ def change_item(product_id=None):
                 "ON CONFLICT(user_id, product_id) DO UPDATE SET quantity = excluded.quantity",
                 (user_id, product_id, quantity))
         database.commit()
+        if epc is not None:
+            scanned = session.get("checkout_epcs") or {}
+            values = list(scanned.get(str(product_id), []))
+            if epc not in values:
+                values.append(epc)
+            scanned[str(product_id)] = values
+            session["checkout_epcs"] = scanned
     except Exception:
         database.rollback()
         raise
     return jsonify(cart_snapshot(database, user_id))
 
 
+@cart.get("/api/checkout/tags")
+def scan_tags():
+    if current_app.config.get("START_SERVICES", True):
+        tag_reader.ensure_started()
+    database = get_db()
+    results = []
+    for epc in tag_reader.get_tags():
+        product = database.execute(
+            "SELECT p.product_id, p.name, p.price, p.quantity AS stock, p.image_url "
+            "FROM Products p JOIN ProductTags t ON t.product_id = p.product_id "
+            "WHERE t.epc = ?", (epc,)
+        ).fetchone()
+        results.append({
+            "epc": epc,
+            "product": dict(product) if product is not None else None,
+        })
+    return jsonify(
+        connected=tag_reader.is_connected(),
+        error=tag_reader.get_last_error(),
+        results=results,
+    )
+
+
+@cart.route("/api/checkout/membership", methods=["POST", "DELETE"])
+def membership():
+    if request.method == "DELETE":
+        session.pop("checkout_customer_id", None)
+        session.pop("checkout_membership_number", None)
+        session.pop("checkout_epcs", None)
+        return jsonify(customer=None)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="Send a JSON object."), 400
+    number = data.get("membership_number")
+    if not isinstance(number, str) or not number.strip():
+        return jsonify(error="Scan or enter a membership number."), 400
+    customer = get_customer_by_membership_number(number)
+    if customer is None:
+        return jsonify(error="Membership number not found."), 404
+    session_customer_id = session.get("customer_id")
+    if session_customer_id is not None and session_customer_id != customer["customer_id"]:
+        return jsonify(error="This membership belongs to another customer."), 403
+    session["checkout_customer_id"] = customer["customer_id"]
+    session["checkout_membership_number"] = customer["membership_number"]
+    return jsonify(customer=dict(customer))
+
+
 @cart.post("/checkout/complete")
 def complete_checkout():
     database = get_db()
     user_id = session["user_id"]
-    customer_id = session.get("customer_id")
+    customer_id = session.get("checkout_customer_id")
 
     rows = database.execute(
         "SELECT p.product_id, p.price, p.quantity AS stock, c.quantity "
@@ -121,6 +185,10 @@ def complete_checkout():
 
     if any(item["quantity"] > item["stock"] for item in rows):
         flash("Some items are no longer in stock. Update your cart and try again.", "error")
+        return redirect(url_for("checkout"))
+
+    if customer_id is None:
+        flash("Scan your membership before paying.", "error")
         return redirect(url_for("checkout"))
 
     total = sum(
@@ -144,15 +212,31 @@ def complete_checkout():
             database.execute(
                 "UPDATE Products SET quantity = quantity - ? WHERE product_id = ?",
                 (item["quantity"], item["product_id"]))
+            scanned = session.get("checkout_epcs") or {}
+            remaining = item["quantity"]
+            for epc in scanned.get(str(item["product_id"]), [])[:item["quantity"]]:
+                remaining -= database.execute(
+                    "DELETE FROM ProductTags WHERE product_id = ? AND epc = ?",
+                    (item["product_id"], epc),
+                ).rowcount
+            if remaining > 0:
+                database.execute(
+                    "DELETE FROM ProductTags WHERE tag_id IN ("
+                    "SELECT tag_id FROM ProductTags WHERE product_id = ? "
+                    "ORDER BY tag_id LIMIT ?)",
+                    (item["product_id"], remaining))
 
         database.execute(
             "INSERT INTO PaymentMethods (transaction_id, method, amount) "
-            "VALUES (?, 'card', ?)", (transaction_id, float(total)))
+            "VALUES (?, 'pay_now', ?)", (transaction_id, float(total)))
         database.execute("DELETE FROM CartItems WHERE user_id = ?", (user_id,))
 
         receipt_number = receipts.assign_receipt_number(database, transaction_id)
         points = loyalty.award_points(database, transaction_id)
         database.commit()
+        session.pop("checkout_customer_id", None)
+        session.pop("checkout_membership_number", None)
+        session.pop("checkout_epcs", None)
     except Exception:
         database.rollback()
         raise
@@ -168,6 +252,6 @@ def complete_checkout():
         message += " The receipt was emailed."
     flash(message, "success")
 
-    if customer_id is not None:
+    if session.get("customer_id") is not None:
         return redirect(url_for("account.receipt", transaction_id=transaction_id))
     return redirect(url_for("checkout"))

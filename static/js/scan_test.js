@@ -1,10 +1,9 @@
 (function () {
     'use strict';
     const status = document.getElementById('reader-status');
-    const toggle = document.getElementById('reader-toggle');
     const body = document.getElementById('live-tags');
     const rows = new Map();
-    let active = true;
+    let running = true;
     let busy = false;
     let timer;
     let controller;
@@ -42,7 +41,7 @@
     }
 
     async function poll() {
-        if (!active || busy) return;
+        if (!running || busy) return;
         busy = true;
         controller = new AbortController();
         try {
@@ -50,37 +49,31 @@
                 method: 'POST', signal: controller.signal
             });
             const data = await response.json();
-            if (!active) return;
+            if (!running) return;
             if (response.status === 401) {
-                active = false;
-                toggle.textContent = 'Resume scanning';
+                running = false;
+                status.textContent = 'Sign in to continue reading tags.';
+                return;
             }
             if (!response.ok) throw new Error(data.error || 'Unable to read tags.');
+            if (data.connected === false) {
+                status.textContent = 'Connecting to reader…';
+                return;
+            }
             data.results.forEach(showTag);
             status.textContent = rows.size
-                ? `Scanning — ${rows.size} unique tag(s) detected.`
+                ? `Reader scanning — ${rows.size} unique tag(s) detected.`
                 : 'Reader connected. Waiting for tags…';
         } catch (error) {
             if (error.name !== 'AbortError') status.textContent = error.message;
         } finally {
             busy = false;
-            if (active) timer = setTimeout(poll, 500);
+            if (running) timer = setTimeout(poll, 500);
         }
     }
 
-    toggle.addEventListener('click', () => {
-        active = !active;
-        clearTimeout(timer);
-        toggle.textContent = active ? 'Pause scanning' : 'Resume scanning';
-        if (active) {
-            status.textContent = 'Connecting to reader…';
-            poll();
-        } else {
-            status.textContent = 'Scanning paused.';
-        }
-    });
     window.addEventListener('pagehide', () => {
-        active = false;
+        running = false;
         clearTimeout(timer);
         if (controller) controller.abort();
     });

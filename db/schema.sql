@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS Products (
     SDK             TEXT UNIQUE,
     price           REAL NOT NULL CHECK (price >= 0),
     quantity        INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
-    company         TEXT NOT NULL
+    company         TEXT NOT NULL,
+    image_url       TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ProductTags (
