@@ -1,0 +1,18 @@
+<section class="minew-section" id="minewDashboard" aria-labelledby="minew-title" data-endpoint="/api/minew">
+  <div class="minew-heading">
+    <div>
+      <div class="minew-eyebrow">BLUETOOTH SENSOR · MSP01</div>
+      <h2 id="minew-title">Environment &amp; Motion</h2>
+      <p>Live conditions from the Minew MSP01 sensor.</p>
+    </div>
+    <div class="minew-status" id="minewStatus" aria-live="polite"><span class="minew-dot"></span><span id="minewStatusText">Waiting for sensor</span></div>
+  </div>
+  <div id="minewNotice" class="minew-notice" role="status">Waiting for BLE gateway data. No readings have been received.</div>
+  <div class="minew-grid">
+    <article class="minew-card"><div class="minew-card-top"><span class="minew-label">Temperature</span><span class="minew-card-icon" aria-hidden="true">🌡</span></div><div class="minew-value"><strong id="minewTemp">—</strong><span>°C</span></div><p>Ambient air temperature</p></article>
+    <article class="minew-card"><div class="minew-card-top"><span class="minew-label">Humidity</span><span class="minew-card-icon" aria-hidden="true">◉</span></div><div class="minew-value"><strong id="minewHumidity">—</strong><span>%</span></div><p>Relative humidity</p></article>
+    <article class="minew-card"><div class="minew-card-top"><span class="minew-label">Light intensity</span><span class="minew-card-icon" aria-hidden="true">☀</span></div><div class="minew-value"><strong id="minewLight">—</strong><span>lux</span></div><p>Ambient illuminance</p></article>
+    <article class="minew-card"><div class="minew-card-top"><span class="minew-label">PIR motion</span><span class="minew-card-icon" aria-hidden="true">◌</span></div><div class="minew-motion" id="minewMotion">Unknown</div><p id="minewMotionTime">No motion event received</p></article>
+  </div>
+  <div class="minew-footer"><span>Device: <strong id="minewDevice">Not identified</strong></span><span>Battery: <strong id="minewBattery">—</strong></span><span>Last update: <strong id="minewUpdated">—</strong></span></div>
+</section>

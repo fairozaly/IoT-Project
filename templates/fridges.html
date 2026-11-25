@@ -24,11 +24,13 @@
     <div class="fd-empty">No refrigerator readings yet.</div>
     {% endfor %}
   </div>
-
 </section>
 
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% include 'minew.html' %}
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='vendor/canvas-gauges/gauge.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fridges.js') }}"></script>
+<script src="{{ url_for('static', filename='js/minew.js') }}"></script>
 {% endblock %}
