@@ -6,8 +6,8 @@ import urllib.request
 from bleak import BleakScanner
 
 ENDPOINT = os.getenv('MINEW_INGEST_URL', 'http://127.0.0.1:5000/api/minew/ingest')
-TOKEN = os.getenv('MINEW_INGEST_TOKEN', '')
-DEVICE = os.getenv('MINEW_DEVICE', '').strip().upper()
+TOKEN = os.getenv('MINEW_INGEST_TOKEN', '2b41311962e2539a8d9c34c4aeb6d454567248c5415662353b390847c1d7de7c')
+DEVICE = os.getenv('MINEW_DEVICE', 'C3:00:00:45:5D:A6').strip().upper()
 QUEUE = asyncio.Queue(maxsize=100)
 LAST_DISCOVERED = set()
 

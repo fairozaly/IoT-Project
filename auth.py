@@ -144,10 +144,15 @@ def init_auth(app):
             "auth.signin",
             "auth.signup",
             "auth.customer_signup",
-            "static"
+            "static",
         ]
 
-        if request.endpoint in public_endpoints:
+        allowed_paths = [
+            "/api/minew",
+            "/api/minew/ingest",
+        ]
+
+        if request.endpoint in public_endpoints or request.path in allowed_paths:
             return None
 
         if not session.get("user_id"):
