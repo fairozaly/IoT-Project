@@ -37,7 +37,7 @@
           <div><dt>Price:</dt><dd>${{ '%.2f'|format(product['price'] or 0) }}</dd></div>
           <div><dt>Manufacturer:</dt><dd>{{ product['company'] or '—' }}</dd></div>
           <div><dt>Stock:</dt><dd data-stock-units>{{ product['quantity'] or 0 }} units</dd></div>
-          <div><dt>RFID tags:</dt><dd data-stock-tags>{{ product['tag_count'] or 0 }} registered</dd></div>
+          <div><dt>Active EPCs:</dt><dd data-stock-tags>{{ product['tag_count'] or 0 }} active</dd></div>
           <div><dt>UPC:</dt><dd>{{ product['upc'] or '—' }}</dd></div>
         </dl>
         {% if product['image_url'] %}<img class="product-image" src="{{ product['image_url'] }}" alt="{{ product['name'] }}" loading="lazy">{% else %}<div class="product-image-placeholder" aria-label="No product image available"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 18 5-5 4 3 4-5 4 5"/></svg></div>{% endif %}

@@ -37,7 +37,7 @@
       const units = card.querySelector('[data-stock-units]');
       const tags = card.querySelector('[data-stock-tags]');
       if (units) units.textContent = `${item.quantity} units`;
-      if (tags && Number.isFinite(Number(item.tag_count))) tags.textContent = `${item.tag_count} registered`;
+      if (tags && Number.isFinite(Number(item.tag_count))) tags.textContent = `${item.tag_count} active`;
       renderStockStatus(card, item);
     });
     renderStockTotal();
@@ -70,7 +70,7 @@
     if (!card) return;
     card.dataset.quantity = quantity;
     card.querySelector('[data-stock-units]').textContent = `${quantity} units`;
-    card.querySelector('[data-stock-tags]').textContent = `${tagCount} registered`;
+    card.querySelector('[data-stock-tags]').textContent = `${tagCount} active`;
     renderStockStatus(card, {
       name: card.dataset.name,
       quantity,

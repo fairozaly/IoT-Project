@@ -443,6 +443,14 @@ h2,h3,p{
     gap:16px
 }
 
+.customers-page .customer-card{
+    min-width:0;
+}
+
+.customers-page .customer-info{
+    flex:1 1 auto;
+}
+
 .customer-card{
     background:var(--white);
     border-radius:9px;
@@ -3759,11 +3767,24 @@ body.dark-mode .product-detail-media {
     margin-top: 12px;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
 .customer-actions form {
     margin: 0;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.customers-page .customer-actions .btn {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+}
+
+.customers-page .customer-actions form .btn {
+    max-width: 100%;
 }
 
 .sc-member-form[hidden] {
@@ -4030,4 +4051,25 @@ body.dark-mode .product-detail-media {
 .receive-undo:disabled {
     opacity: .55;
     cursor: wait;
+}
+
+@media (max-width: 700px) {
+    .customers-page .customer-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .customers-page .customer-card {
+        padding: 18px;
+    }
+
+    .customers-page .customer-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .customers-page .customer-actions a,
+    .customers-page .customer-actions form,
+    .customers-page .customer-actions form .btn {
+        width: 100%;
+    }
 }

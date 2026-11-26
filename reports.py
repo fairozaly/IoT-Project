@@ -76,6 +76,38 @@ def sales_trend(db, start, end, bounds, interval, category):
 
 def sales_financials(db, bounds, category=""):
     """Return the financial snapshot required by the administrator sales report."""
+    if not category:
+        # Receipts round GST/QST per transaction. Summing the stored transaction
+        # totals keeps the report aligned with what customers actually paid;
+        # recalculating tax from line items can differ by a cent across receipts.
+        row = db.execute(
+            """
+            SELECT COALESCE(SUM(subtotal_amount), 0) AS subtotal,
+                   COALESCE(SUM(cost_amount), 0) AS cost,
+                   COALESCE(SUM(gst_amount), 0) AS gst,
+                   COALESCE(SUM(qst_amount), 0) AS qst,
+                   COALESCE(SUM(total_amount), 0) AS revenue,
+                   COALESCE(SUM(COALESCE(profit_amount, subtotal_amount - cost_amount)), 0) AS profit,
+                   COUNT(*) AS transactions
+            FROM Transactions
+            WHERE status = 'completed' AND transaction_date >= ? AND transaction_date < ?
+            """, bounds,
+        ).fetchone()
+        subtotal = round(row["subtotal"] or 0, 2)
+        cost = round(row["cost"] or 0, 2)
+        gst = round(row["gst"] or 0, 2)
+        qst = round(row["qst"] or 0, 2)
+        return {
+            "subtotal": subtotal,
+            "gst": gst,
+            "qst": qst,
+            "tax": round(gst + qst, 2),
+            "cost": cost,
+            "profit": round(row["profit"] or 0, 2),
+            "revenue": round(row["revenue"] or 0, 2),
+            "transactions": row["transactions"],
+        }
+
     category_clause = "" if not category else " AND p.category = ?"
     params = list(bounds) + ([category] if category else [])
     row = db.execute(

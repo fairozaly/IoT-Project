@@ -114,6 +114,7 @@ def inventory_snapshot():
                COALESCE(th.threshold, 5) AS low_stock_threshold
         FROM Products p
         LEFT JOIN ProductTags t ON t.product_id = p.product_id
+                                AND t.status = 'in_stock'
         LEFT JOIN CategoryStockThresholds th ON th.category = p.category
         GROUP BY p.product_id
         ORDER BY p.name COLLATE NOCASE, p.product_id

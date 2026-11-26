@@ -331,10 +331,11 @@
       const latestTime = Math.max(...readings.map(item => readingTime(item.timestamp)));
       if (!readings.length) {
         update.textContent = 'Waiting for readings';
-      } else if (!Number.isFinite(latestTime) || Date.now() - latestTime > 15000) {
-        update.textContent = 'No recent data';
+      } else if (!Number.isFinite(latestTime)) {
+        update.textContent = 'Last update unavailable';
       } else {
-        update.textContent = 'Updated ' + new Date(latestTime).toLocaleTimeString();
+        const label = Date.now() - latestTime > 15000 ? 'Last updated ' : 'Updated ';
+        update.textContent = label + new Date(latestTime).toLocaleTimeString();
       }
       error.hidden = true;
     } catch (err) {
