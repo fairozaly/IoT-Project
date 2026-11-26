@@ -403,7 +403,9 @@ def register():
                 errors.append(f"{label} must be {maximum} characters or fewer.")
         if email and not valid_email(email):
             errors.append("Enter a valid email address.")
-        if phone_input and not valid_phone(phone_input):
+        if not phone_input:
+            errors.append("Phone number is required.")
+        elif not valid_phone(phone_input):
             errors.append("Enter a valid 10-digit phone number, such as (514) 555-1234.")
         if email and get_customer_by_email(email):
             errors.append("A customer with that email already exists.")

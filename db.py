@@ -50,8 +50,8 @@ def delete_customer(customer_id):
 
 def add_customer(first_name, last_name, address, phone=None, email=None):
     normalized_phone = normalize_quebec_phone(phone) if phone else None
-    if phone and normalized_phone is None:
-        raise ValueError("phone must be a valid Quebec phone number")
+    if normalized_phone is None:
+        raise ValueError("phone is required and must be a valid Quebec phone number")
     db = get_db()
     db.execute(
         "INSERT INTO Customers "
@@ -229,6 +229,8 @@ def get_product_tag_history(product_id):
 
 
 def normalize_epc(epc):
+    if not isinstance(epc, str):
+        raise ValueError("EPC must be text.")
     epc = (epc or "").strip().upper()
     if not re.fullmatch(r"(?:[0-9A-F]{2}){1,12}", epc):
         raise ValueError("EPC must contain an even number of hexadecimal characters (2–24).")

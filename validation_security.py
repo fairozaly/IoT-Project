@@ -89,6 +89,8 @@ def json_error(message, status=400, code="invalid_input", **details):
 
 
 def parse_finite_number(value, field, *, minimum=None, maximum=None):
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a valid number.")
     try:
         number = float(value)
     except (TypeError, ValueError, OverflowError):
@@ -144,8 +146,6 @@ def normalize_quebec_phone(value):
 
 
 def valid_phone(value):
-    if value is None or value == "":
-        return True
     return normalize_quebec_phone(value) is not None
 
 

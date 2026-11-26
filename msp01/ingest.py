@@ -20,7 +20,7 @@ MSP01_DYNAMB_TOPIC_SUFFIX = "dynamb"
 HISTORY_TABLE = "MSP01Readings"
 _DEVICE_RE = re.compile(r"^[0-9a-f]{12}(?:/[0-9]+)?$")
 _MAX_TIMESTAMP = 8_640_000_000_000_000
-_SUPPORTED_FIELDS = ("temperature", "humidity", "light", "motion")
+_SUPPORTED_FIELDS = ("temperature", "humidity", "light", "motion", "battery", "rssi")
 
 
 def ensure_history_table(database=None):

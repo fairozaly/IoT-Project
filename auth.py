@@ -126,8 +126,14 @@ def customer_signup():
             error="The passwords do not match.",
             error_field="confirm_password",
         )
-    phone = normalize_quebec_phone(phone_input) if phone_input else None
-    if phone_input and not valid_phone(phone_input):
+    if not phone_input:
+        return render_template(
+            "customer_signup.html",
+            error="Enter your phone number.",
+            error_field="phone",
+        )
+    phone = normalize_quebec_phone(phone_input)
+    if not valid_phone(phone_input):
         return render_template(
             "customer_signup.html",
             error="Enter a valid 10-digit phone number, such as (514) 555-1234.",
