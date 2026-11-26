@@ -74,6 +74,43 @@ def sales_trend(db, start, end, bounds, interval, category):
     return {"revenue": revenue / 100, "transactions": transactions}, trend, maximum / 100
 
 
+def sales_financials(db, bounds, category=""):
+    """Return the financial snapshot required by the administrator sales report."""
+    category_clause = "" if not category else " AND p.category = ?"
+    params = list(bounds) + ([category] if category else [])
+    row = db.execute(
+        """
+        SELECT COALESCE(SUM(i.quantity * i.price_at_sale), 0) AS subtotal,
+               COALESCE(SUM(i.quantity * i.cost_at_sale), 0) AS cost,
+               COALESCE(SUM(CASE WHEN i.taxable_at_sale = 1
+                                 THEN i.quantity * i.price_at_sale * t.gst_rate ELSE 0 END), 0) AS gst,
+               COALESCE(SUM(CASE WHEN i.taxable_at_sale = 1
+                                 THEN i.quantity * i.price_at_sale * t.qst_rate ELSE 0 END), 0) AS qst,
+               COUNT(DISTINCT t.transaction_id) AS transactions
+        FROM Transactions t
+        JOIN TransactionItems i USING (transaction_id)
+        JOIN Products p USING (product_id)
+        WHERE t.status = 'completed' AND t.transaction_date >= ? AND t.transaction_date < ?
+        """ + category_clause,
+        params,
+    ).fetchone()
+    subtotal = round(row["subtotal"] or 0, 2)
+    cost = round(row["cost"] or 0, 2)
+    gst = round(row["gst"] or 0, 2)
+    qst = round(row["qst"] or 0, 2)
+    tax = round(gst + qst, 2)
+    return {
+        "subtotal": subtotal,
+        "gst": gst,
+        "qst": qst,
+        "tax": tax,
+        "cost": cost,
+        "profit": round(subtotal - cost, 2),
+        "revenue": round(subtotal + tax, 2),
+        "transactions": row["transactions"],
+    }
+
+
 def date_range(default_start, default_end):
     try:
         start = date.fromisoformat(request.args.get("start") or default_start.isoformat())
@@ -212,7 +249,13 @@ def overview():
                 abort(400, "Enter a ranking size from 1 to 50.")
             products = db.execute(
                 """
-                SELECT p.product_id, p.name, p.category, SUM(i.quantity) AS sold
+                SELECT p.product_id, p.name, p.category, SUM(i.quantity) AS sold,
+                       SUM(i.quantity * i.price_at_sale) AS revenue,
+                       SUM(i.quantity * i.cost_at_sale) AS cost,
+                       SUM(CASE WHEN i.taxable_at_sale = 1
+                                THEN i.quantity * i.price_at_sale * (t.gst_rate + t.qst_rate)
+                                ELSE 0 END) AS tax,
+                       SUM(i.quantity * (i.price_at_sale - i.cost_at_sale)) AS profit
                 FROM Transactions t JOIN TransactionItems i USING (transaction_id)
                 JOIN Products p USING (product_id)
                 WHERE t.status = 'completed' AND t.transaction_date >= ? AND t.transaction_date < ?
@@ -226,6 +269,7 @@ def overview():
             sales, trend, chart_max = sales_trend(
                 db, start, end, bounds, 7 if grouping == "week" else 1, category
             )
+            sales = sales_financials(db, bounds, category)
             top = products[:limit]
             bottom = sorted(products, key=lambda row: (row["sold"], row["name"], row["product_id"]))[:limit]
             data.update(products=products, sales=sales, limit=limit, top=top, bottom=bottom,
@@ -236,11 +280,15 @@ def overview():
                 return csv_download(
                     "sales.csv",
                     ("Type", "From", "Through", "Product ID", "Product", "Units sold", "Revenue (CAD)",
-                     "Purchases", "Most sold rank", "Least sold rank", "Category"),
-                    [("Total", start, end, "", "", "", f'{sales["revenue"]:.2f}', sales["transactions"], "", "", category)]
-                    + [("Product", start, end, row["product_id"], row["name"], row["sold"], "", "",
-                        top_ranks.get(row["product_id"]), bottom_ranks.get(row["product_id"]), row["category"]) for row in products]
-                    + [("Trend", point["start"], point["end"], "", "", "", f'{point["revenue"]:.2f}', "", "", "", category)
+                     "Purchases", "Most sold rank", "Least sold rank", "Category", "Cost (CAD)",
+                     "Tax (CAD)", "Profit (CAD)"),
+                    [("Total", start, end, "", "", "", f'{sales["revenue"]:.2f}', sales["transactions"], "", "", category,
+                      f'{sales["cost"]:.2f}', f'{sales["tax"]:.2f}', f'{sales["profit"]:.2f}')]
+                    + [("Product", start, end, row["product_id"], row["name"], row["sold"],
+                        f'{(row["revenue"] or 0):.2f}', "", top_ranks.get(row["product_id"]),
+                        bottom_ranks.get(row["product_id"]), row["category"], f'{(row["cost"] or 0):.2f}',
+                        f'{(row["tax"] or 0):.2f}', f'{(row["profit"] or 0):.2f}') for row in products]
+                    + [("Trend", point["start"], point["end"], "", "", "", f'{point["revenue"]:.2f}', "", "", "", category, "", "", "")
                        for point in trend],
                 )
     else:

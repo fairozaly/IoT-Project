@@ -1,4 +1,4 @@
-import RPi.GPIO as GPIO
+from gpio_backend import GPIO
 from time import sleep
 
 SUCCESS_INDICATOR_IO = 23

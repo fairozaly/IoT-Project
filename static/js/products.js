@@ -10,7 +10,59 @@
   function renderStockTotal() {
     text('productsStock').textContent = cards.reduce((sum, card) => sum + Number(card.dataset.quantity), 0).toLocaleString();
   }
+  function renderStockStatus(card, item) {
+    let status = card.querySelector('[data-stock-status]');
+    if (!status) {
+      status = document.createElement('span');
+      status.dataset.stockStatus = '';
+      status.className = 'products-live-stock-status';
+      const body = card.querySelector('.product-tile-body') || card;
+      body.appendChild(status);
+    }
+    const labels = {
+      in_stock: 'In stock',
+      low_stock: 'Low stock',
+      out_of_stock: 'Out of stock',
+    };
+    status.textContent = labels[item.status] || 'Stock status unavailable';
+    status.dataset.status = item.status || 'unknown';
+    card.setAttribute('aria-label', `${item.name}: ${status.textContent}, ${item.quantity} units`);
+  }
+  function applyInventory(items) {
+    if (!Array.isArray(items)) return;
+    items.forEach(item => {
+      const card = cards.find(candidate => Number(candidate.dataset.productId) === Number(item.product_id));
+      if (!card || !Number.isFinite(Number(item.quantity))) return;
+      card.dataset.quantity = String(item.quantity);
+      const units = card.querySelector('[data-stock-units]');
+      const tags = card.querySelector('[data-stock-tags]');
+      if (units) units.textContent = `${item.quantity} units`;
+      if (tags && Number.isFinite(Number(item.tag_count))) tags.textContent = `${item.tag_count} registered`;
+      renderStockStatus(card, item);
+    });
+    renderStockTotal();
+  }
+  async function pollInventory() {
+    try {
+      const response = await fetch('/api/inventory', {
+        headers: {Accept: 'application/json'},
+        cache: 'no-store',
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      applyInventory(payload.items);
+    } catch (error) {
+      // Inventory remains usable with the last rendered values if polling fails.
+    }
+  }
   renderStockTotal();
+  cards.forEach(card => renderStockStatus(card, {
+    name: card.dataset.name,
+    quantity: Number(card.dataset.quantity),
+    status: Number(card.dataset.quantity) === 0 ? 'out_of_stock' : 'in_stock',
+  }));
+  pollInventory();
+  window.setInterval(pollInventory, 3000);
 
   document.addEventListener('inventory:received', event => {
     const {productId, quantity, tag_count: tagCount} = event.detail;
@@ -19,6 +71,11 @@
     card.dataset.quantity = quantity;
     card.querySelector('[data-stock-units]').textContent = `${quantity} units`;
     card.querySelector('[data-stock-tags]').textContent = `${tagCount} registered`;
+    renderStockStatus(card, {
+      name: card.dataset.name,
+      quantity,
+      status: quantity === 0 ? 'out_of_stock' : 'in_stock',
+    });
     renderStockTotal();
   });
   text('productsCount').textContent = cards.length.toLocaleString();

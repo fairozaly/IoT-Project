@@ -6,14 +6,14 @@
 {% block content %}
 <section class="fridge-dashboard" aria-label="Storage overview">
   <div class="fd-heading">
-    <div><div class="fd-eyebrow">STORAGE MONITORING</div><h1>Storage Overview</h1><p>Refrigerator readings update automatically every 3 seconds.</p></div>
+    <div><h1>Storage overview</h1><p>Refrigerator readings update automatically every 3 seconds.</p></div>
     <a class="btn btn-secondary" href="{{ url_for('storage_history') }}">View history</a>
-    <div class="fd-live"><span class="fd-pulse"></span><span id="fd-update">Waiting for readings</span><span id="fanStatus">Fan: unknown</span><button id="stopFan" type="button" class="btn btn-secondary">Stop fan</button></div>
+    <div class="fd-live"><span id="fd-update" role="status" aria-live="polite">Waiting for readings</span><span id="fanStatus">Fan: unknown</span><button id="stopFan" type="button" class="btn btn-secondary">Stop fan</button></div>
   </div>
   <p id="fanApproval" class="fan-approval" role="status"></p>
   <div id="fanError" class="fd-error" role="alert" hidden></div>
   <div id="fd-error" class="fd-error" role="alert" hidden></div>
-  <div class="fd-cards" id="fd-cards" aria-live="polite">
+  <div class="fd-cards" id="fd-cards">
     {% for reading in fridges %}
     <article class="fd-fridge" data-fridge="{{ reading['name']|e }}">
       <div class="fd-fridge-head"><div class="fd-name"><span class="fd-icon" aria-hidden="true">▦</span><h2>{{ reading['name'] }}</h2></div><span class="fd-status">{{ 'ABOVE THRESHOLD' if reading.above_threshold else 'DATA AVAILABLE' }}</span></div>

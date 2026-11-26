@@ -17,7 +17,7 @@
   </nav>
   <div class="section-panel">
     {% if report == 'inventory' %}
-    <div class="section-heading"><h2>Available inventory</h2><small id="inventory-refresh">Updates every 3 seconds</small></div>
+    <div class="section-heading"><h2>Available inventory</h2><small id="inventory-refresh" role="status" aria-live="polite">Automatic updates every 3 seconds</small></div>
     <form method="get" class="report-actions">
       {% include "report_category.html" %}
       <button class="btn btn-secondary">Apply</button>
@@ -52,6 +52,13 @@
     <p>{{ start }} to {{ end }} · Montreal time{% if report == 'sales' %} · {{ category or 'All categories' }}{% elif customer_id %} · Customer #{{ customer_id }}{% endif %}</p>
     {% if report == 'sales' %}
     <p><strong>Total sales:</strong> ${{ '%.2f'|format(sales.revenue) }} across {{ sales.transactions }} purchases</p>
+    <div class="form-grid">
+      <p><strong>Subtotal:</strong> ${{ '%.2f'|format(sales.subtotal) }}</p>
+      <p><strong>GST:</strong> ${{ '%.2f'|format(sales.gst) }}</p>
+      <p><strong>QST:</strong> ${{ '%.2f'|format(sales.qst) }}</p>
+      <p><strong>Cost:</strong> ${{ '%.2f'|format(sales.cost) }}</p>
+      <p><strong>Profit:</strong> ${{ '%.2f'|format(sales.profit) }}</p>
+    </div>
     {% if category %}<p>Revenue includes items in {{ category }}. Purchase count includes receipts containing those items.</p>{% endif %}
     <h3>{{ 'Weekly' if grouping == 'week' else 'Daily' }} revenue</h3>
     {% if sales.transactions %}
@@ -91,10 +98,10 @@
     </div>
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Product</th><th>Product ID</th><th>Category</th><th>Units sold</th></tr></thead>
+        <thead><tr><th>Product</th><th>Product ID</th><th>Category</th><th>Units sold</th><th>Revenue</th><th>Cost</th><th>Tax</th><th>Profit</th></tr></thead>
         <tbody>
-          {% for product in products %}<tr><td>{{ product.name }}</td><td>{{ product.product_id }}</td><td>{{ product.category }}</td><td>{{ product.sold }}</td></tr>
-          {% else %}<tr><td colspan="4">No products sold in this period.</td></tr>{% endfor %}
+          {% for product in products %}<tr><td>{{ product.name }}</td><td>{{ product.product_id }}</td><td>{{ product.category }}</td><td>{{ product.sold }}</td><td>${{ '%.2f'|format(product.revenue or 0) }}</td><td>${{ '%.2f'|format(product.cost or 0) }}</td><td>${{ '%.2f'|format(product.tax or 0) }}</td><td>${{ '%.2f'|format(product.profit or 0) }}</td></tr>
+          {% else %}<tr><td colspan="8">No products sold in this period.</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>
@@ -116,7 +123,7 @@
       </figcaption>
     </figure>
     {% endif %}
-    <p>Busiest days had <strong>{{ busiest }}</strong> customers and quietest days had <strong>{{ quietest }}</strong>.</p>
+    <p>Highest-activity days had <strong>{{ busiest }}</strong> customers and lowest-activity days had <strong>{{ quietest }}</strong>.</p>
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>Day</th><th>Unique customers</th><th>Activity</th></tr></thead>

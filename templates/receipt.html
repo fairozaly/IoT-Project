@@ -31,8 +31,13 @@
         </tbody>
       </table>
     </div>
-    <p><strong>Total: ${{ '%.2f'|format(t['total_amount']) }}</strong></p>
-    <p>Points earned: {{ t['points_earned'] }}</p>
+    <dl class="receipt-totals" aria-label="Receipt totals">
+      <div class="receipt-total-row"><dt>Subtotal</dt><dd>${{ '%.2f'|format(t['subtotal_amount']) }}</dd></div>
+      <div class="receipt-total-row"><dt>GST</dt><dd>${{ '%.2f'|format(t['gst_amount']) }}</dd></div>
+      <div class="receipt-total-row"><dt>QST</dt><dd>${{ '%.2f'|format(t['qst_amount']) }}</dd></div>
+      <div class="receipt-total-row receipt-grand-total"><dt>Total</dt><dd>${{ '%.2f'|format(t['total_amount']) }}</dd></div>
+    </dl>
+    <p class="receipt-points"><span>Points earned</span><strong>+{{ t['points_earned'] }}</strong></p>
     {% if not checkout_receipt %}
     <form method="post" action="{{ url_for('account.email_receipt', transaction_id=t['transaction_id'], **receipt_filters) }}">
       <button type="submit" class="btn btn-secondary">{{ 'Resend' if t['receipt_email_sent'] else 'Email me' }} this receipt</button>

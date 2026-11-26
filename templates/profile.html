@@ -1,22 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Settings{% endblock %}
+{% block title %}Profile{% endblock %}
 {% block header_title %}Profile{% endblock %}
 {% block content %}
 <section class="page-section">
     <div class="page-heading">
         <div>
-            <p class="eyebrow">PROFILE</p>
-            <h1>Admin Settings</h1>
-            <p class="subhead">Manage credentials and permissions.</p>
+            <h1>Profile</h1>
+            <p class="subhead">View your account details.</p>
         </div>
     </div>
     <div class="section-panel">
         <div class="setting-row">
             <div>
-                <h3>Edit your credentials</h3>
-                <p>to be integrated</p>
+                <h3>Email</h3>
+                <p>{{ session.get('email', 'Not available') }}</p>
             </div>
-            <span class="setting-tag neutral"></span>
+        </div>
+        <div class="setting-row">
+            <div>
+                <h3>Account type</h3>
+                <p>Operations account</p>
+            </div>
+        </div>
+        <div class="form-actions">
+            <a class="btn btn-primary" href="{{ dashboard_url }}">Open admin dashboard</a>
         </div>
     </div>
 </section>

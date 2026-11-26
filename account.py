@@ -123,6 +123,8 @@ def product_history():
         """, (customer_id,),
     ).fetchall()
     product_search = request.args.get("product_search", "").strip()
+    if len(product_search) > 120:
+        raise BadRequest("Product search must be 120 characters or fewer.")
     search = product_search.casefold()
     matching_products = [
         row for row in products

@@ -3,32 +3,131 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Create customer account · Smart Store</title>
+  <title>Create your account · Smart Store</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
-  <main class="auth-page">
-    <section class="auth-card">
-      <h1>Create customer account</h1>
-      <p>Create an account to earn loyalty points and see your purchase history and receipts.</p>
-      {% if error %}<p role="alert">{{ error }}</p>{% endif %}
-      <form method="post">
-        <label for="first_name">First name</label>
-        <input id="first_name" name="first_name" type="text" autocomplete="given-name" required maxlength="100" value="{{ request.form.get('first_name', '') }}">
-        <label for="last_name">Last name</label>
-        <input id="last_name" name="last_name" type="text" autocomplete="family-name" required maxlength="100" value="{{ request.form.get('last_name', '') }}">
-        <label for="address">Address</label>
-        <input id="address" name="address" type="text" autocomplete="street-address" required maxlength="200" value="{{ request.form.get('address', '') }}">
-        <label for="phone">Phone (optional)</label>
-        <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="30" value="{{ request.form.get('phone', '') }}">
-        <label for="email">Email</label>
-        <input id="email" type="email" name="email" autocomplete="email" required maxlength="254" value="{{ request.form.get('email', '') }}">
-        <label for="password">Password</label>
-        <input id="password" type="password" name="password" autocomplete="new-password" required minlength="8">
-        <button type="submit">Create customer account</button>
-      </form>
-      <p>Already have an account? <a href="{{ url_for('auth.signin') }}">Sign in</a></p>
-    </section>
+<body class="customer-auth-body">
+  <header class="customer-auth-header">
+    <a class="customer-auth-brand" href="{{ url_for('auth.signin') }}" aria-label="Smart Store home">
+      <span class="customer-auth-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 10h16l-1 10H5L4 10Z"/><path d="M7 10a5 5 0 0 1 10 0M8 14h.01M12 14h.01M16 14h.01"/>
+        </svg>
+      </span>
+      <span>Smart Store</span>
+    </a>
+    <div class="customer-auth-header-actions">
+      <span>Already a member?</span>
+      <a href="{{ url_for('auth.signin') }}">Sign in</a>
+      <button class="auth-theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg>
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="customer-auth-page">
+    <div class="customer-auth-shell">
+      <section class="customer-auth-intro" aria-labelledby="signup-intro-heading">
+        <h1 id="signup-intro-heading">Keep your purchases together.</h1>
+        <p class="customer-auth-lead">Save receipts, earn loyalty points, and use your membership when you shop.</p>
+        <ul class="customer-benefits">
+          <li>
+            <span class="customer-benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            <span><strong>Earn loyalty points</strong><small>Get rewarded as you shop.</small></span>
+          </li>
+          <li>
+            <span class="customer-benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-3-6 3V3Z"/><path d="M9 8h6M9 12h6"/></svg></span>
+            <span><strong>Find every receipt</strong><small>Review your purchase history anytime.</small></span>
+          </li>
+          <li>
+            <span class="customer-benefit-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg></span>
+            <span><strong>Check out faster</strong><small>Use your membership on future visits.</small></span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="customer-auth-card" aria-labelledby="signup-heading">
+        <div class="customer-auth-card-heading">
+          <h2 id="signup-heading">Create your account</h2>
+          <p>Use your membership and keep receipts together.</p>
+        </div>
+
+        {% if error %}
+        <div class="signup-error-summary" id="signup-error" role="alert" tabindex="-1" aria-labelledby="signup-error-title">
+          <strong id="signup-error-title">We need one more detail</strong>
+          <p>{{ error }}</p>
+          {% if error_field %}<a href="#{{ error_field }}">Review this field</a>{% endif %}
+        </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('auth.customer_signup') }}" class="customer-signup-form" data-customer-signup {% if error_field %}data-error-field="{{ error_field }}"{% endif %}>
+          <fieldset>
+            <legend>Your details</legend>
+            <div class="customer-form-grid">
+              <div class="customer-field {% if error_field == 'first_name' %}has-server-error{% endif %}">
+                <label for="first_name">First name <span aria-hidden="true">*</span></label>
+                <input id="first_name" name="first_name" type="text" autocomplete="given-name" required maxlength="100" value="{{ request.form.get('first_name', '') }}" aria-describedby="first_name-error" {% if error_field == 'first_name' %}aria-invalid="true"{% endif %}>
+                <p class="customer-field-error" id="first_name-error" data-error-for="first_name" {% if error_field != 'first_name' %}hidden{% endif %}>{% if error_field == 'first_name' %}{{ error }}{% endif %}</p>
+              </div>
+              <div class="customer-field {% if error_field == 'last_name' %}has-server-error{% endif %}">
+                <label for="last_name">Last name <span aria-hidden="true">*</span></label>
+                <input id="last_name" name="last_name" type="text" autocomplete="family-name" required maxlength="100" value="{{ request.form.get('last_name', '') }}" aria-describedby="last_name-error" {% if error_field == 'last_name' %}aria-invalid="true"{% endif %}>
+                <p class="customer-field-error" id="last_name-error" data-error-for="last_name" {% if error_field != 'last_name' %}hidden{% endif %}>{% if error_field == 'last_name' %}{{ error }}{% endif %}</p>
+              </div>
+              <div class="customer-field customer-field-wide {% if error_field == 'address' %}has-server-error{% endif %}">
+                <label for="address">Address <span aria-hidden="true">*</span></label>
+                <input id="address" name="address" type="text" autocomplete="street-address" required maxlength="200" placeholder="123 Main Street, Montreal, QC" value="{{ request.form.get('address', '') }}" aria-describedby="address-help address-error" {% if error_field == 'address' %}aria-invalid="true"{% endif %}>
+                <small id="address-help">Used to keep your customer profile complete.</small>
+                <p class="customer-field-error" id="address-error" data-error-for="address" {% if error_field != 'address' %}hidden{% endif %}>{% if error_field == 'address' %}{{ error }}{% endif %}</p>
+              </div>
+              <div class="customer-field {% if error_field == 'phone' %}has-server-error{% endif %}">
+                <label for="phone">Phone</label>
+                <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" pattern="(?:\+?1[\s.-]?)?(?:\((?:263|354|367|418|438|450|468|514|579|581|819|873)\)|(?:263|354|367|418|438|450|468|514|579|581|819|873))[\s.-]?[2-9][0-9]{2}[\s.-]?[0-9]{4}" placeholder="(514) 555-1234" value="{{ request.form.get('phone', '') }}" aria-describedby="phone-help phone-error" {% if error_field == 'phone' %}aria-invalid="true"{% endif %}>
+                <small id="phone-help">Enter a 10-digit phone number.</small>
+                <p class="customer-field-error" id="phone-error" data-error-for="phone" {% if error_field != 'phone' %}hidden{% endif %}>{% if error_field == 'phone' %}{{ error }}{% endif %}</p>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Account access</legend>
+            <div class="customer-field customer-field-wide {% if error_field == 'email' %}has-server-error{% endif %}">
+              <label for="email">Email address <span aria-hidden="true">*</span></label>
+              <input id="email" type="email" name="email" autocomplete="email" required maxlength="254" placeholder="you@example.com" value="{{ request.form.get('email', '') }}" aria-describedby="email-help email-error" {% if error_field == 'email' %}aria-invalid="true"{% endif %}>
+              <small id="email-help">This is your sign-in and receipt email.</small>
+              <p class="customer-field-error" id="email-error" data-error-for="email" {% if error_field != 'email' %}hidden{% endif %}>{% if error_field == 'email' %}{{ error }}{% endif %}</p>
+            </div>
+            <div class="customer-form-grid customer-password-grid">
+              <div class="customer-field {% if error_field == 'password' %}has-server-error{% endif %}">
+                <label for="password">Password <span aria-hidden="true">*</span></label>
+                <div class="password-input-wrap">
+                  <input id="password" type="password" name="password" autocomplete="new-password" required minlength="8" aria-describedby="password-help password-error" {% if error_field == 'password' %}aria-invalid="true"{% endif %}>
+                  <button type="button" class="password-toggle" data-password-toggle="password" aria-label="Show password">Show</button>
+                </div>
+                <small id="password-help">At least 8 characters.</small>
+                <p class="customer-field-error" id="password-error" data-error-for="password" {% if error_field != 'password' %}hidden{% endif %}>{% if error_field == 'password' %}{{ error }}{% endif %}</p>
+              </div>
+              <div class="customer-field {% if error_field == 'confirm_password' %}has-server-error{% endif %}">
+                <label for="confirm_password">Confirm password <span aria-hidden="true">*</span></label>
+                <div class="password-input-wrap">
+                  <input id="confirm_password" type="password" name="confirm_password" autocomplete="new-password" required minlength="8" aria-describedby="confirm_password-error" {% if error_field == 'confirm_password' %}aria-invalid="true"{% endif %}>
+                  <button type="button" class="password-toggle" data-password-toggle="confirm_password" aria-label="Show password">Show</button>
+                </div>
+                <p class="customer-field-error" id="confirm_password-error" data-error-for="confirm_password" {% if error_field != 'confirm_password' %}hidden{% endif %}>{% if error_field == 'confirm_password' %}{{ error }}{% endif %}</p>
+              </div>
+            </div>
+          </fieldset>
+
+          <p class="customer-privacy-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>We’ll use your details to manage your account and purchases. No payment information is needed to sign up.</span></p>
+          <button type="submit" class="customer-submit">Create account</button>
+        </form>
+        <p class="customer-signin-prompt">Already have an account? <a href="{{ url_for('auth.signin') }}">Sign in</a></p>
+      </section>
+    </div>
   </main>
+
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/customer-signup.js') }}"></script>
 </body>
 </html>

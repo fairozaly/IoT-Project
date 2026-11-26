@@ -1,0 +1,17 @@
+{
+  "name": "smart-store-msp01-bridge",
+  "private": true,
+  "description": "Optional Minew MSP01 BLE to MQTT bridge for Smart Store",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "advlib": "1.3.12",
+    "advlib-ble": "1.4.2",
+    "advlib-ble-manufacturers": "1.15.2",
+    "advlib-ble-services": "1.8.5",
+    "barnowl": "1.3.4",
+    "barnowl-hci": "0.7.2",
+    "mqtt": "5.16.1"
+  }
+}

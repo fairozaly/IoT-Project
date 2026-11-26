@@ -10,16 +10,15 @@
   <main class="auth-page">
     <section class="auth-card">
       <h1>{{ self.title() }}</h1>
-      <p>The email you sign in with receives fan approval requests.</p>
-      {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+      <p>Sign in to access your customer account or staff tools.</p>
+      {% if error %}<p id="signin-error" class="auth-error" role="alert" tabindex="-1">{{ error }}</p>{% endif %}
       <form method="post">
         <label for="email">Email</label>
-        <input id="email" type="email" name="email" autocomplete="email" required maxlength="254" value="{{ request.form.get('email', '') }}">
+        <input id="email" type="email" name="email" autocomplete="email" required maxlength="254" value="{{ request.form.get('email', '') }}"{% if error %} aria-invalid="true" aria-describedby="signin-error"{% endif %}>
         <label for="password">Password</label>
-        <input id="password" type="password" name="password" autocomplete="{% block password_autocomplete %}current-password{% endblock %}" required minlength="8">
+        <input id="password" type="password" name="password" autocomplete="{% block password_autocomplete %}current-password{% endblock %}" required minlength="8"{% if error %} aria-invalid="true" aria-describedby="signin-error"{% endif %}>
         <button type="submit">{{ self.title() }}</button>
       </form>
-      {% block switch %}<p>Need an account? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>{% endblock %}
       {% if not session.get('user_id') %}
       <p><a href="{{ url_for('checkout') }}">Continue to self-checkout as a guest</a></p>
       {% endif %}

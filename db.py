@@ -2,14 +2,18 @@ import re
 import sqlite3
 from pathlib import Path
 
-from flask import g
+from flask import current_app, g
+from validation_security import normalize_quebec_phone
 
 DATABASE = str(Path(__file__).resolve().parent / "smart_store.db")
 
 def get_db():
     db = getattr(g, "_database", None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
+        # Keep the existing file as the production default, while allowing
+        # Flask test apps (and local tools) to provide an isolated database.
+        database_path = current_app.config.get("DATABASE", DATABASE)
+        db = g._database = sqlite3.connect(database_path)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
     return db
@@ -45,6 +49,9 @@ def delete_customer(customer_id):
 
 
 def add_customer(first_name, last_name, address, phone=None, email=None):
+    normalized_phone = normalize_quebec_phone(phone) if phone else None
+    if phone and normalized_phone is None:
+        raise ValueError("phone must be a valid Quebec phone number")
     db = get_db()
     db.execute(
         "INSERT INTO Customers "
@@ -54,7 +61,7 @@ def add_customer(first_name, last_name, address, phone=None, email=None):
             first_name,
             last_name,
             address,
-            phone,
+            normalized_phone,
             email,
         ),
     )
@@ -66,7 +73,7 @@ def get_product(product_id):
 
     cur = db.execute(
         "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
-        "price, quantity, company, image_url "
+        "price, cost_price, taxable, quantity, company, image_url "
         "FROM Products WHERE product_id = ?",
         (product_id,),
     )
@@ -78,7 +85,7 @@ def get_product_by_barcode(barcode):
 
     cur = db.execute(
         "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
-        "price, quantity, company, image_url "
+        "price, cost_price, taxable, quantity, company, image_url "
         "FROM Products WHERE upc = ?",
         (barcode,),
     )
@@ -116,7 +123,8 @@ def get_products():
     return db.execute(
         "SELECT product_id, name, category, upc, upc AS barcode, SDK, "
         "price, quantity, company, image_url, "
-        "(SELECT COUNT(*) FROM ProductTags t WHERE t.product_id = Products.product_id) AS tag_count "
+        "(SELECT COUNT(*) FROM ProductTags t WHERE t.product_id = Products.product_id "
+        "AND t.status = 'in_stock') AS tag_count "
         "FROM Products ORDER BY name"
     ).fetchall()
 
@@ -142,14 +150,16 @@ def add_product(
     category="Uncategorized",
     upc=None,
     image_url=None,
+    cost_price=0,
+    taxable=1,
 ):
     upc = upc or barcode
     db = get_db()
     db.execute(
         "INSERT INTO Products "
-        "(name, category, upc, SDK, price, quantity, company, image_url) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (name, category, upc, SDK, price, quantity, company, image_url),
+        "(name, category, upc, SDK, price, cost_price, taxable, quantity, company, image_url) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, category, upc, SDK, price, cost_price, int(bool(taxable)), quantity, company, image_url),
     )
     db.commit()
 
@@ -165,6 +175,8 @@ def edit_product(
     category=None,
     upc=None,
     image_url=None,
+    cost_price=None,
+    taxable=None,
 ):
     existing = get_product(product_id)
     if existing is None:
@@ -179,6 +191,8 @@ def edit_product(
     quantity = existing["quantity"] if quantity is None else quantity
     company = existing["company"] if company is None else company
     image_url = existing["image_url"] if image_url is None else image_url
+    cost_price = existing["cost_price"] if cost_price is None else cost_price
+    taxable = existing["taxable"] if taxable is None else int(bool(taxable))
 
     # Allows us to use this method to increase or decrease quantity as well
     if isinstance(quantity, str):
@@ -190,8 +204,9 @@ def edit_product(
     db = get_db()
     db.execute(
         "UPDATE Products SET name = ?, category = ?, upc = ?, SDK = ?, "
-        "price = ?, quantity = ?, company = ?, image_url = ? WHERE product_id = ?",
-        (name, category, upc, SDK, price, quantity, company, image_url, product_id),
+        "price = ?, cost_price = ?, taxable = ?, quantity = ?, company = ?, image_url = ? "
+        "WHERE product_id = ?",
+        (name, category, upc, SDK, price, cost_price, taxable, quantity, company, image_url, product_id),
     )
     db.commit()
     return True
@@ -199,8 +214,17 @@ def edit_product(
 
 def get_product_tags(product_id):
     return get_db().execute(
-        "SELECT tag_id, epc, registered_at FROM ProductTags "
-        "WHERE product_id = ? ORDER BY tag_id DESC", (product_id,)
+        "SELECT tag_id, epc, registered_at, status, sold_at, removed_at, transaction_id "
+        "FROM ProductTags WHERE product_id = ? AND status = 'in_stock' "
+        "ORDER BY tag_id DESC", (product_id,)
+    ).fetchall()
+
+
+def get_product_tag_history(product_id):
+    """Return every EPC and its current state for audit/report consumers."""
+    return get_db().execute(
+        "SELECT tag_id, epc, registered_at, status, sold_at, removed_at, transaction_id "
+        "FROM ProductTags WHERE product_id = ? ORDER BY tag_id DESC", (product_id,)
     ).fetchall()
 
 
@@ -214,9 +238,29 @@ def normalize_epc(epc):
 def get_product_by_epc(epc):
     return get_db().execute(
         "SELECT p.*, p.upc AS barcode FROM Products p "
-        "JOIN ProductTags t ON t.product_id = p.product_id WHERE t.epc = ?",
+        "JOIN ProductTags t ON t.product_id = p.product_id "
+        "WHERE t.epc = ? AND t.status = 'in_stock'",
         (epc.strip().upper(),),
     ).fetchone()
+
+
+def sync_tagged_product_quantity(database, product_id):
+    """Keep quantity aligned with active EPCs when a product has tags."""
+    database.execute(
+        "UPDATE Products SET quantity = ("
+        "SELECT COUNT(*) FROM ProductTags "
+        "WHERE product_id = ? AND status = 'in_stock') "
+        "WHERE product_id = ? AND EXISTS ("
+        "SELECT 1 FROM ProductTags WHERE product_id = ?)",
+        (product_id, product_id, product_id),
+    )
+
+
+def record_tag_event(database, tag_id, status, transaction_id=None, note=None):
+    database.execute(
+        "INSERT INTO ProductTagEvents (tag_id, status, transaction_id, note) "
+        "VALUES (?, ?, ?, ?)", (tag_id, status, transaction_id, note),
+    )
 
 
 def delete_product_tag(product_id, tag_id):
@@ -225,18 +269,19 @@ def delete_product_tag(product_id, tag_id):
         database.execute("BEGIN IMMEDIATE")
         row = database.execute(
             "SELECT (SELECT quantity FROM Products WHERE product_id = ?) AS quantity, "
-            "COUNT(*) AS tags FROM ProductTags WHERE product_id = ?",
+            "COUNT(*) AS tags FROM ProductTags "
+            "WHERE product_id = ? AND status = 'in_stock'",
             (product_id, product_id),
         ).fetchone()
         result = database.execute(
-            "DELETE FROM ProductTags WHERE product_id = ? AND tag_id = ?",
+            "UPDATE ProductTags SET status = 'removed', removed_at = CURRENT_TIMESTAMP, "
+            "sold_at = NULL, transaction_id = NULL "
+            "WHERE product_id = ? AND tag_id = ? AND status = 'in_stock'",
             (product_id, tag_id),
         )
-        if result.rowcount and row["quantity"] >= row["tags"]:
-            database.execute(
-                "UPDATE Products SET quantity = MAX(quantity - 1, 0) "
-                "WHERE product_id = ?", (product_id,),
-            )
+        if result.rowcount:
+            record_tag_event(database, tag_id, "removed", note="Removed from inventory")
+            sync_tagged_product_quantity(database, product_id)
         database.commit()
     except Exception:
         database.rollback()
@@ -256,7 +301,7 @@ def receive_scanned_tag(product_id, epc, supplier=None):
             database.rollback()
             return {"status": "missing_product", "epc": epc}
         existing = database.execute(
-            "SELECT product_id FROM ProductTags WHERE epc = ?", (epc,)
+            "SELECT product_id, status FROM ProductTags WHERE epc = ?", (epc,)
         ).fetchone()
         if existing is not None:
             database.rollback()
@@ -266,6 +311,8 @@ def receive_scanned_tag(product_id, epc, supplier=None):
             "INSERT INTO ProductTags (product_id, epc) VALUES (?, ?)",
             (product_id, epc),
         )
+        tag_id = database.execute("SELECT last_insert_rowid()").fetchone()[0]
+        record_tag_event(database, tag_id, "in_stock", note="Received into inventory")
         database.execute(
             "INSERT INTO ProductReceptions "
             "(product_id, quantity_received, supplier) VALUES (?, 1, ?)",
@@ -315,6 +362,13 @@ def receive_scanned_tags(product_id, epcs, supplier=None):
                 "INSERT INTO ProductTags (product_id, epc) VALUES (?, ?)",
                 [(product_id, epc) for epc in received],
             )
+            new_tags = database.execute(
+                f"SELECT tag_id, epc FROM ProductTags WHERE product_id = ? "
+                f"AND epc IN ({','.join('?' for _ in received)})",
+                (product_id, *received),
+            ).fetchall()
+            for tag in new_tags:
+                record_tag_event(database, tag["tag_id"], "in_stock", note="Received into inventory")
             reception_id = database.execute(
                 "INSERT INTO ProductReceptions "
                 "(product_id, quantity_received, supplier) VALUES (?, ?, ?)",
@@ -336,7 +390,8 @@ def receive_scanned_tags(product_id, epcs, supplier=None):
                 (reception_id,),
             ).fetchone())
         tag_count = database.execute(
-            "SELECT COUNT(*) FROM ProductTags WHERE product_id = ?", (product_id,)
+            "SELECT COUNT(*) FROM ProductTags "
+            "WHERE product_id = ? AND status = 'in_stock'", (product_id,)
         ).fetchone()[0]
         database.commit()
     except Exception:
@@ -360,7 +415,7 @@ def undo_received_tag(reception_id, epc):
         database.execute("BEGIN IMMEDIATE")
         tag = database.execute(
             """
-            SELECT t.tag_id, t.product_id, p.quantity, r.quantity_received
+            SELECT t.tag_id, t.product_id, t.status, p.quantity, r.quantity_received
             FROM ReceivedTags rt
             JOIN ProductTags t USING (tag_id)
             JOIN ProductReceptions r USING (reception_id)
@@ -368,14 +423,15 @@ def undo_received_tag(reception_id, epc):
             WHERE rt.reception_id = ? AND t.epc = ?
             """, (reception_id, epc),
         ).fetchone()
-        if tag is None or tag["quantity"] == 0:
+        if tag is None or tag["status"] != "in_stock":
             return None
 
         product_id = tag["product_id"]
-        database.execute("DELETE FROM ProductTags WHERE tag_id = ?", (tag["tag_id"],))
         database.execute(
-            "UPDATE Products SET quantity = quantity - 1 WHERE product_id = ?", (product_id,)
+            "UPDATE ProductTags SET status = 'removed', removed_at = CURRENT_TIMESTAMP "
+            "WHERE tag_id = ?", (tag["tag_id"],)
         )
+        record_tag_event(database, tag["tag_id"], "removed", note="Undid received tag")
         quantity_received = tag["quantity_received"] - 1
         if quantity_received:
             database.execute(
@@ -386,12 +442,14 @@ def undo_received_tag(reception_id, epc):
             database.execute(
                 "DELETE FROM ProductReceptions WHERE reception_id = ?", (reception_id,)
             )
+        sync_tagged_product_quantity(database, product_id)
         tag_count = database.execute(
-            "SELECT COUNT(*) FROM ProductTags WHERE product_id = ?", (product_id,)
+            "SELECT COUNT(*) FROM ProductTags WHERE product_id = ? AND status = 'in_stock'",
+            (product_id,),
         ).fetchone()[0]
         return {
             "product_id": product_id,
-            "quantity": tag["quantity"] - 1,
+            "quantity": tag_count,
             "tag_count": tag_count,
             "quantity_received": quantity_received,
         }
@@ -577,6 +635,28 @@ def get_latest_readings():
     return cur.fetchall()
 
 
+def get_sensor_readings_for_period(start_timestamp, end_timestamp):
+    """Return readings in a caller-defined UTC-naive timestamp period.
+
+    A LEFT JOIN keeps sensors with no readings available for an explicit empty
+    state. The application supplies bounds for the local calendar day and
+    validates returned values before rendering them.
+    """
+    return get_db().execute(
+        """
+        SELECT s.sensor_id, s.name, s.location,
+               r.reading_id, r.timestamp, r.temperature, r.humidity
+        FROM Sensors s
+        LEFT JOIN SensorReadings r
+          ON r.sensor_id = s.sensor_id
+         AND r.timestamp >= ?
+         AND r.timestamp < ?
+        ORDER BY s.name COLLATE NOCASE, r.timestamp, r.reading_id
+        """,
+        (start_timestamp, end_timestamp),
+    ).fetchall()
+
+
 def migrate_sensor_thresholds(db):
     columns = {row["name"] for row in db.execute("PRAGMA table_info(Sensors)")}
     if "temp_min" not in columns and "temp_max" not in columns:
@@ -608,7 +688,8 @@ def migrate_stock_to_tags(database):
     database.execute(
         "UPDATE Products SET quantity = ("
         "SELECT COUNT(*) FROM ProductTags t "
-        "WHERE t.product_id = Products.product_id)"
+        "WHERE t.product_id = Products.product_id AND t.status = 'in_stock') "
+        "WHERE EXISTS (SELECT 1 FROM ProductTags t2 WHERE t2.product_id = Products.product_id)"
     )
     database.execute(
         "INSERT INTO AppSettings (name, value) VALUES ('stock_tags_reconciled', '1')"
@@ -628,6 +709,89 @@ def migrate_product_images(database):
         database.execute(
             "UPDATE Products SET image_url = ? WHERE name = ?", (image_url, name)
         )
+
+
+def migrate_financial_fields(database):
+    """Add historical cost and tax snapshots without changing old receipts."""
+    product_columns = {row["name"] for row in database.execute("PRAGMA table_info(Products)")}
+    if "cost_price" not in product_columns:
+        database.execute("ALTER TABLE Products ADD COLUMN cost_price REAL NOT NULL DEFAULT 0 CHECK (cost_price >= 0)")
+    if "taxable" not in product_columns:
+        database.execute("ALTER TABLE Products ADD COLUMN taxable INTEGER NOT NULL DEFAULT 1 CHECK (taxable IN (0, 1))")
+
+    transaction_columns = {row["name"] for row in database.execute("PRAGMA table_info(Transactions)")}
+    additions = (
+        ("subtotal_amount", "REAL NOT NULL DEFAULT 0 CHECK (subtotal_amount >= 0)"),
+        ("gst_amount", "REAL NOT NULL DEFAULT 0 CHECK (gst_amount >= 0)"),
+        ("qst_amount", "REAL NOT NULL DEFAULT 0 CHECK (qst_amount >= 0)"),
+        ("tax_amount", "REAL NOT NULL DEFAULT 0 CHECK (tax_amount >= 0)"),
+        ("cost_amount", "REAL NOT NULL DEFAULT 0 CHECK (cost_amount >= 0)"),
+        ("profit_amount", "REAL NOT NULL DEFAULT 0"),
+        ("gst_rate", "REAL NOT NULL DEFAULT 0.05 CHECK (gst_rate >= 0)"),
+        ("qst_rate", "REAL NOT NULL DEFAULT 0.09975 CHECK (qst_rate >= 0)"),
+    )
+    for name, definition in additions:
+        if name not in transaction_columns:
+            database.execute(f"ALTER TABLE Transactions ADD COLUMN {name} {definition}")
+    database.execute(
+        "UPDATE Transactions SET subtotal_amount = total_amount "
+        "WHERE subtotal_amount = 0 AND total_amount > 0"
+    )
+    database.execute(
+        "UPDATE Transactions SET profit_amount = subtotal_amount - cost_amount "
+        "WHERE profit_amount = 0 AND subtotal_amount > 0"
+    )
+
+    item_columns = {row["name"] for row in database.execute("PRAGMA table_info(TransactionItems)")}
+    for name, definition in (
+        ("cost_at_sale", "REAL NOT NULL DEFAULT 0 CHECK (cost_at_sale >= 0)"),
+        ("taxable_at_sale", "INTEGER NOT NULL DEFAULT 1 CHECK (taxable_at_sale IN (0, 1))"),
+    ):
+        if name not in item_columns:
+            database.execute(f"ALTER TABLE TransactionItems ADD COLUMN {name} {definition}")
+
+
+def migrate_product_tag_lifecycle(database):
+    """Preserve EPC rows and add an append-only lifecycle event trail."""
+    columns = {row["name"] for row in database.execute("PRAGMA table_info(ProductTags)")}
+    if "status" not in columns:
+        database.execute(
+            "ALTER TABLE ProductTags ADD COLUMN status TEXT NOT NULL DEFAULT 'in_stock' "
+            "CHECK (status IN ('in_stock', 'sold', 'removed'))"
+        )
+    if "sold_at" not in columns:
+        database.execute("ALTER TABLE ProductTags ADD COLUMN sold_at TEXT")
+    if "removed_at" not in columns:
+        database.execute("ALTER TABLE ProductTags ADD COLUMN removed_at TEXT")
+    if "transaction_id" not in columns:
+        database.execute("ALTER TABLE ProductTags ADD COLUMN transaction_id INTEGER")
+    database.execute(
+        "CREATE INDEX IF NOT EXISTS idx_product_tags_status "
+        "ON ProductTags(product_id, status)"
+    )
+    database.execute("""
+        CREATE TABLE IF NOT EXISTS ProductTagEvents (
+            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tag_id INTEGER NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('in_stock', 'sold', 'removed')),
+            event_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            transaction_id INTEGER,
+            note TEXT,
+            FOREIGN KEY (tag_id) REFERENCES ProductTags(tag_id) ON DELETE CASCADE
+        )
+    """)
+    database.execute(
+        "CREATE INDEX IF NOT EXISTS idx_product_tag_events_tag_id "
+        "ON ProductTagEvents(tag_id, event_at)"
+    )
+    database.execute(
+        "INSERT INTO ProductTagEvents (tag_id, status, event_at, transaction_id, note) "
+        "SELECT tag_id, status, COALESCE(removed_at, sold_at, registered_at), transaction_id, "
+        "'Migrated current EPC state' FROM ProductTags t "
+        "WHERE NOT EXISTS (SELECT 1 FROM ProductTagEvents e WHERE e.tag_id = t.tag_id)"
+    )
+    for row in database.execute("SELECT DISTINCT product_id FROM ProductTags"):
+        sync_tagged_product_quantity(database, row["product_id"])
 
 
 def migrate_product_tags(database):
@@ -726,14 +890,48 @@ def migrate_optional_membership(database):
         database.execute("PRAGMA foreign_keys = ON")
 
 
+def migrate_phone_numbers(database):
+    """Canonicalize legacy phones and remove values that are not Quebec-valid."""
+    rows = database.execute(
+        "SELECT customer_id, phone FROM Customers WHERE phone IS NOT NULL"
+    ).fetchall()
+    for row in rows:
+        normalized = normalize_quebec_phone(row["phone"])
+        if normalized is None:
+            # Invalid legacy values cannot remain in a strictly validated field.
+            database.execute(
+                "UPDATE Customers SET phone = NULL WHERE customer_id = ?",
+                (row["customer_id"],),
+            )
+            continue
+        if normalized != row["phone"]:
+            conflict = database.execute(
+                "SELECT customer_id FROM Customers WHERE phone = ? AND customer_id <> ?",
+                (normalized, row["customer_id"]),
+            ).fetchone()
+            if conflict:
+                database.execute(
+                    "UPDATE Customers SET phone = NULL WHERE customer_id = ?",
+                    (row["customer_id"],),
+                )
+            else:
+                database.execute(
+                    "UPDATE Customers SET phone = ? WHERE customer_id = ?",
+                    (normalized, row["customer_id"]),
+                )
+
+
 def init_db(app):
     with app.app_context():
         db = get_db()
         with app.open_resource("db/schema.sql", mode="r") as f:
             db.cursor().executescript(f.read())
         migrate_optional_membership(db)
+        migrate_phone_numbers(db)
         migrate_product_tags(db)
         migrate_product_images(db)
+        migrate_financial_fields(db)
+        migrate_product_tag_lifecycle(db)
         migrate_stock_to_tags(db)
         migrate_sensor_thresholds(db)
         db.executemany(

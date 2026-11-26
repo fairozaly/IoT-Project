@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Admin dashboard{% endblock %}
+{% block header_title %}Admin dashboard{% endblock %}
+{% block body_class %}customers-page admin-dashboard-page{% endblock %}
+{% block content %}
+<section class="page-section" aria-labelledby="admin-dashboard-title">
+  <div class="page-heading">
+    <div>
+      <h1 id="admin-dashboard-title">Admin dashboard</h1>
+      <p class="subhead">Today, {{ dashboard.today.isoformat() }}</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('inventory') }}">View inventory</a>
+  </div>
+
+  <div class="products-overview" aria-label="Today's sales summary">
+    <article class="products-stat"><span>Today's sales</span><strong>${{ '%.2f'|format(dashboard.sales) }}</strong></article>
+    <article class="products-stat"><span>Transactions</span><strong>{{ dashboard.transactions }}</strong></article>
+    <article class="products-stat"><span>Items sold</span><strong>{{ dashboard['items'] }}</strong></article>
+    <article class="products-stat">
+      <span>Today's profit</span>
+      <strong>{% if dashboard.profit is none %}Not tracked{% else %}${{ '%.2f'|format(dashboard.profit) }}{% endif %}</strong>
+    </article>
+  </div>
+  {% if dashboard.profit is none %}
+  <p class="subhead">Profit is unavailable because product cost is not stored in the current data model.</p>
+  {% endif %}
+
+  <section class="section-panel" aria-labelledby="fridge-summary-title">
+    <div class="section-heading"><div class="section-title"><h2 id="fridge-summary-title">Current fridge summary</h2></div></div>
+    {% if dashboard.fridges %}
+    <div class="customer-grid">
+      {% for fridge in dashboard.fridges %}
+      <article class="customer-card">
+        <div class="customer-info">
+          <h3>{{ fridge.name }}</h3>
+          <p>Temperature: {{ '%.1f'|format(fridge.temperature) if fridge.temperature is not none else '—' }} °C</p>
+          <p>Humidity: {{ '%.1f'|format(fridge.humidity) if fridge.humidity is not none else '—' }}%</p>
+          <p>Status: {{ 'Above threshold' if fridge.above_threshold else 'Within threshold' }}</p>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p>No fridge readings are available.</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

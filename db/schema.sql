@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS Products (
     upc             TEXT NOT NULL UNIQUE CHECK (length(upc) <= 13),
     SDK             TEXT UNIQUE,
     price           REAL NOT NULL CHECK (price >= 0),
+    cost_price      REAL NOT NULL DEFAULT 0 CHECK (cost_price >= 0),
+    taxable         INTEGER NOT NULL DEFAULT 1 CHECK (taxable IN (0, 1)),
     quantity        INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     company         TEXT NOT NULL,
     image_url       TEXT
@@ -34,9 +36,26 @@ CREATE TABLE IF NOT EXISTS ProductTags (
     epc             TEXT NOT NULL COLLATE NOCASE UNIQUE
                     CHECK (length(epc) BETWEEN 1 AND 24),
     registered_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status          TEXT NOT NULL DEFAULT 'in_stock'
+                    CHECK (status IN ('in_stock', 'sold', 'removed')),
+    sold_at         TEXT,
+    removed_at      TEXT,
+    transaction_id  INTEGER,
     FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_product_tags_product_id ON ProductTags(product_id);
+
+CREATE TABLE IF NOT EXISTS ProductTagEvents (
+    event_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    tag_id          INTEGER NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN ('in_stock', 'sold', 'removed')),
+    event_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    transaction_id  INTEGER,
+    note            TEXT,
+    FOREIGN KEY (tag_id) REFERENCES ProductTags(tag_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_product_tag_events_tag_id
+    ON ProductTagEvents(tag_id, event_at);
 
 CREATE TABLE IF NOT EXISTS ProductReceptions (
     reception_id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +76,14 @@ CREATE TABLE IF NOT EXISTS Transactions (
     customer_id      INTEGER,
     transaction_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     total_amount     REAL NOT NULL CHECK (total_amount >= 0),
+    subtotal_amount  REAL NOT NULL DEFAULT 0 CHECK (subtotal_amount >= 0),
+    gst_amount       REAL NOT NULL DEFAULT 0 CHECK (gst_amount >= 0),
+    qst_amount       REAL NOT NULL DEFAULT 0 CHECK (qst_amount >= 0),
+    tax_amount       REAL NOT NULL DEFAULT 0 CHECK (tax_amount >= 0),
+    cost_amount      REAL NOT NULL DEFAULT 0 CHECK (cost_amount >= 0),
+    profit_amount    REAL NOT NULL DEFAULT 0,
+    gst_rate         REAL NOT NULL DEFAULT 0.05 CHECK (gst_rate >= 0),
+    qst_rate         REAL NOT NULL DEFAULT 0.09975 CHECK (qst_rate >= 0),
     status           TEXT NOT NULL DEFAULT 'completed',
     points_earned    INTEGER NOT NULL DEFAULT 0 CHECK (points_earned >= 0),
     points_redeemed  INTEGER NOT NULL DEFAULT 0 CHECK (points_redeemed >= 0),
@@ -72,6 +99,8 @@ CREATE TABLE IF NOT EXISTS TransactionItems (
     product_id              INTEGER NOT NULL,
     quantity                INTEGER NOT NULL CHECK (quantity > 0),
     price_at_sale           REAL NOT NULL CHECK (price_at_sale >= 0),
+    cost_at_sale            REAL NOT NULL DEFAULT 0 CHECK (cost_at_sale >= 0),
+    taxable_at_sale         INTEGER NOT NULL DEFAULT 1 CHECK (taxable_at_sale IN (0, 1)),
     FOREIGN KEY (transaction_id) REFERENCES Transactions(transaction_id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE RESTRICT
 );
@@ -152,6 +181,8 @@ CREATE INDEX IF NOT EXISTS idx_product_receptions_product_id
     ON ProductReceptions(product_id);
 CREATE INDEX IF NOT EXISTS idx_payment_methods_transaction_id
     ON PaymentMethods(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_product_tag_events_transaction_id
+    ON ProductTagEvents(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_sensor_readings_sensor_id
     ON SensorReadings(sensor_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_reading_id

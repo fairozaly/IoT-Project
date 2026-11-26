@@ -17,5 +17,19 @@ IMAP_PORT = int(os.getenv("IMAP_PORT", "993"))
 FRIDGE3_BLE_DEVICE = os.getenv("FRIDGE3_BLE_DEVICE", "c30000455da7/3").strip().lower()
 
 
+def _env_flag(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# The standalone bridge is opt-in. Pareto Anywhere remains the default external
+# Bluetooth path used by the Flask application.
+MSP01_ENABLED = _env_flag("MSP01_ENABLED", False)
+MSP01_TOPIC = os.getenv("MSP01_TOPIC", "msp01").strip().strip("/") or "msp01"
+MSP01_ADDRESS = os.getenv("MSP01_ADDRESS", "").strip().lower()
+
+
 def is_mail_configured():
     return bool(MAIL_SENDER_EMAIL and MAIL_SENDER_SECRET)

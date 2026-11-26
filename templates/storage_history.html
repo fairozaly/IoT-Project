@@ -7,10 +7,15 @@
 {% block content %}
 <section class="fridge-dashboard" aria-label="Storage history">
   <div class="fd-heading">
-    <div><div class="fd-eyebrow">STORAGE MONITORING</div><h1>Storage History</h1><p>Recent temperature and humidity readings collected while this page is open. Updates every 3 seconds.</p></div>
-    <div class="fd-live"><span class="fd-pulse"></span><span id="fd-update">Waiting for readings</span></div>
+    <div><h1>Storage history</h1><p>Temperature readings recorded today, grouped by refrigerator.</p></div>
+    <div class="fd-live"><span id="fd-update" role="status" aria-live="polite">Waiting for readings</span></div>
   </div>
   <div id="fd-error" class="fd-error" role="alert" hidden></div>
+  <p class="fd-history-date">Date: {{ history_date }}</p>
+  {% if invalid_readings %}
+  <p class="fd-history-notice" role="status">{{ invalid_readings }} malformed reading{{ '' if invalid_readings == 1 else 's' }} omitted.</p>
+  {% endif %}
+  <script type="application/json" id="fd-history-data">{{ history_groups | tojson }}</script>
   <div class="fd-charts">
     <section class="fd-chart-card" aria-labelledby="fd-temp-title">
       <div class="fd-chart-head"><h2 id="fd-temp-title"><span class="fd-mini-bars">▥</span> Temperature history</h2><select id="fd-temp-filter" aria-label="Select refrigerator for temperature chart"><option value="all">All refrigerators</option></select></div>
@@ -23,6 +28,38 @@
       <div class="fd-chart-area"><svg id="fd-humidity-chart" role="img" aria-label="Humidity chart" viewBox="0 0 650 260" preserveAspectRatio="xMidYMid meet"></svg></div>
     </section>
   </div>
+  <section class="fd-history-list" aria-labelledby="fd-history-title">
+    <h2 id="fd-history-title">Today's recorded temperatures</h2>
+    {% set groups_with_readings = history_groups | selectattr('readings') | list %}
+    {% if not groups_with_readings %}
+    <p class="fd-empty">No valid temperature readings have been recorded today.</p>
+    {% else %}
+      {% for sensor in history_groups %}
+      <section class="fd-history-group" aria-labelledby="fd-history-sensor-{{ sensor.sensor_id }}">
+        <div class="fd-history-group-head">
+          <div>
+            <h3 id="fd-history-sensor-{{ sensor.sensor_id }}">{{ sensor.name }}</h3>
+            <p>{{ sensor.location }}</p>
+          </div>
+          <span>{{ sensor.readings | length }} reading{{ '' if sensor.readings | length == 1 else 's' }}</span>
+        </div>
+        {% if sensor.readings %}
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Today's temperature readings for {{ sensor.name }}</caption>
+            <thead><tr><th scope="col">Time</th><th scope="col">Temperature</th><th scope="col">Humidity</th></tr></thead>
+            <tbody>
+              {% for reading in sensor.readings %}
+              <tr><td>{{ reading.local_time }}</td><td>{{ '%.1f' | format(reading.temperature) }} °C</td><td>{{ '%.1f' | format(reading.humidity) ~ ' %' if reading.humidity is not none else '—' }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </section>
+      {% endfor %}
+    {% endif %}
+  </section>
 </section>
 {% endblock %}
 {% block scripts %}

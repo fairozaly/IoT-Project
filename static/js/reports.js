@@ -17,8 +17,8 @@ async function refreshInventory() {
     if (content !== inventory.lastReport) {
       inventory.innerHTML = content;
       inventory.lastReport = content;
+      refreshStatus.textContent = 'Inventory updated at ' + new Date().toLocaleTimeString();
     }
-    refreshStatus.textContent = 'Updates every 3 seconds';
   } catch {
     refreshStatus.textContent = 'Refresh unavailable. Showing the last inventory update.';
   } finally {

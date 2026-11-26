@@ -5,6 +5,19 @@ pip install -r requirements.txt
 python app.py
 ```
 
+## Smoke tests
+
+Run the dependency-free application smoke suite from the project root:
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+The suite creates a temporary SQLite database for each test and disables
+MQTT, RFID, email, Bluetooth, and hardware services. The production database
+path remains `smart_store.db`; tests override it through the Flask `DATABASE`
+configuration value.
+
 ## Pareto Anywhere Bluetooth sensors
 
 1. Follow the [reelyActive Raspberry Pi guide](https://reelyactive.github.io/diy/pareto-anywhere-pi/) to install Pareto Anywhere and `barnowl-hci`. Start Pareto Anywhere with `npm start` and run `npm run forwarder` from the `barnowl-hci` directory to capture Bluetooth advertising packets.

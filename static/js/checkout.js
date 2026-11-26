@@ -24,11 +24,131 @@
     let lastTagAt = 0;
     const seenEpcs = new Set();
 
+    function isMacOSBrowser() {
+        const userAgent = navigator.userAgent || '';
+        const platform = navigator.userAgentData?.platform || navigator.platform || '';
+        const isTouchMac = navigator.maxTouchPoints > 1 && /Macintosh|Mac OS X/i.test(userAgent);
+        return !isTouchMac && (/Macintosh|Mac OS X/i.test(userAgent) || /^Mac/i.test(platform));
+    }
+
+    function initMockControls() {
+        const container = $('scMockControls');
+        if (!container || !isMacOSBrowser()) return;
+
+        let products;
+        try {
+            products = JSON.parse(container.dataset.products || '[]');
+        } catch (error) {
+            return;
+        }
+        if (!Array.isArray(products) || !products.length) return;
+
+        const title = document.createElement('h3');
+        title.textContent = 'Simulate RFID scans';
+        const description = document.createElement('p');
+        description.textContent = 'macOS test control. Each click scans one registered sample tag.';
+        const sampleBasket = document.createElement('button');
+        sampleBasket.type = 'button';
+        sampleBasket.className = 'sc-btn sc-btn-primary';
+        sampleBasket.textContent = 'Load sample basket';
+        sampleBasket.title = 'Scan three available sample products';
+        const list = document.createElement('div');
+        list.className = 'sc-mock-product-list';
+        const mockButtons = new Map();
+
+        function availableEpc(product) {
+            const epcs = Array.isArray(product.epcs) ? product.epcs : [];
+            return epcs.find(value => !seenEpcs.has(value));
+        }
+
+        products.forEach(product => {
+            const epcs = Array.isArray(product.epcs) ? product.epcs : [];
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'sc-btn sc-btn-soft';
+            button.textContent = `Scan ${product.name}`;
+            button.dataset.productId = String(product.product_id);
+            button.disabled = !product.in_stock || epcs.length === 0;
+            if (!product.in_stock) button.title = 'Out of stock';
+            if (epcs.length === 0) button.title = 'No sample RFID tags are registered';
+            button.addEventListener('click', async () => {
+                if (button.disabled) return;
+                const epc = epcs.find(value => !seenEpcs.has(value));
+                if (!epc) {
+                    button.disabled = true;
+                    button.title = 'All sample RFID tags have been scanned';
+                    return;
+                }
+                button.disabled = true;
+                try {
+                    await addTagProduct({
+                        epc,
+                        product: {product_id: product.product_id, name: product.name}
+                    });
+                    recordScan(epc, product.name);
+                } catch (error) {
+                    notice(error.message, true);
+                } finally {
+                    button.disabled = !product.in_stock || !epcs.some(value => !seenEpcs.has(value));
+                    if (button.disabled && epcs.length) {
+                        button.title = 'All sample RFID tags have been scanned';
+                    }
+                }
+            });
+            mockButtons.set(product.product_id, button);
+            list.append(button);
+        });
+
+        sampleBasket.addEventListener('click', async () => {
+            const sampleProducts = products
+                .filter(product => product.in_stock && availableEpc(product))
+                .slice(0, 3);
+            if (!sampleProducts.length) {
+                notice('No unused sample stock is available. Clear the basket or add more stock.', true);
+                return;
+            }
+            sampleBasket.disabled = true;
+            try {
+                for (const product of sampleProducts) {
+                    const epc = availableEpc(product);
+                    await addTagProduct({
+                        epc,
+                        product: {product_id: product.product_id, name: product.name}
+                    });
+                    recordScan(epc, product.name);
+                    const button = mockButtons.get(product.product_id);
+                    if (button) button.disabled = !availableEpc(product);
+                }
+                notice('Sample basket loaded. Continue to membership and payment.');
+            } catch (error) {
+                notice(error.message, true);
+            } finally {
+                sampleBasket.disabled = false;
+            }
+        });
+
+        const basketActions = document.createElement('div');
+        basketActions.className = 'sc-mock-actions';
+        basketActions.append(sampleBasket);
+        container.append(title, description, basketActions, list);
+        container.hidden = false;
+    }
+
     function notice(text, error = false) {
         const el = $('scNotice');
         el.hidden = false;
         el.textContent = text;
+        el.setAttribute('role', error ? 'alert' : 'status');
+        el.setAttribute('aria-live', error ? 'assertive' : 'polite');
         el.style.borderColor = error ? '#ce7070' : '';
+    }
+
+    function recordScan(epc, productName) {
+        seenEpcs.add(epc);
+        lastTagAt = Date.now();
+        $('scScanCount').textContent = `${seenEpcs.size} unique tag${seenEpcs.size === 1 ? '' : 's'}`;
+        $('scLastScan').textContent = `Last tag read at ${new Date(lastTagAt).toLocaleTimeString()}`;
+        notice(`Scanned ${productName} (${epc}).`);
     }
 
     function updatePayment() {
@@ -67,7 +187,8 @@
             empty.className = 'sc-empty';
             const icon = document.createElement('div');
             icon.className = 'sc-empty-icon';
-            icon.textContent = '🛒';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4h2l2.4 11h10.2L20 7H6"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>';
             const strong = document.createElement('strong');
             strong.textContent = 'Your basket is empty';
             const text = document.createElement('p');
@@ -126,7 +247,7 @@
 
     function setReader(connected) {
         const badge = $('scReaderBadge');
-        badge.textContent = connected ? 'Reader online' : 'Not connected';
+        badge.textContent = connected ? 'Reader ready' : 'Reader not connected';
         badge.classList.toggle('online', connected);
     }
 
@@ -194,12 +315,13 @@
     function membershipFeedback(text, invalid = false) {
         membershipMessage.textContent = text;
         membershipMessage.classList.toggle('is-error', invalid);
+        membershipMessage.setAttribute('role', invalid ? 'alert' : 'status');
+        membershipMessage.setAttribute('aria-live', invalid ? 'assertive' : 'polite');
         membershipInput.setAttribute('aria-invalid', String(invalid));
     }
 
     function continueToPayment() {
         setStep(3);
-        $('scPaymentSection').scrollIntoView({behavior: 'smooth', block: 'center'});
         $('scPay').focus({preventScroll: true});
     }
 
@@ -227,7 +349,7 @@
             });
             const data = await response.json();
             if (response.status === 404) {
-                throw new Error('No membership found. Check the number or email, or continue without membership.');
+                throw new Error('No membership found. Check the number or continue without membership.');
             }
             if (!response.ok) throw new Error(data.error || 'Unable to update membership.');
             setMembership(data.applied);
@@ -293,7 +415,6 @@
             return;
         }
         setStep(2);
-        $('scMemberSection').scrollIntoView({behavior: 'smooth', block: 'center'});
         (membershipApplied ? membershipContinue : membershipInput).focus({preventScroll: true});
     });
 
@@ -306,7 +427,7 @@
             event.preventDefault();
             const identifier = membershipInput.value.trim();
             if (!identifier) {
-                membershipFeedback('Scan or enter a membership number or email.', true);
+                membershipFeedback('Scan or enter a membership number.', true);
                 membershipInput.focus();
                 return;
             }
@@ -329,6 +450,7 @@
         clearTimeout(readerTimer);
     });
 
+    initMockControls();
     setStep(1);
     cartRequest().catch(error => notice(error.message, true)).finally(pollTags);
 })();

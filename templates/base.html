@@ -11,8 +11,12 @@
   {% block styles %}{% endblock %}
 </head>
 <body class="{% block body_class %}customers-page{% endblock %}">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <header class="topbar">
     <a class="brand" href="{{ url_for('fridges') if session.get('user_id') and session.get('customer_id') is none else url_for('checkout') }}" aria-label="Smart Store">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16l-1 10H5L4 10Z"/><path d="M7 10a5 5 0 0 1 10 0M8 14h.01M12 14h.01M16 14h.01"/></svg></span>
+      <span class="brand-name">Smart Store</span>
+      <span class="brand-divider" aria-hidden="true">/</span>
       <span class="brand-title">{% block header_title %}Storage Overview{% endblock %}</span>
     </a>
     <div class="header-actions">
@@ -26,9 +30,23 @@
       </div>
       {% if session.get('user_id') %}
       <span class="account-email">{{ session['email'] }}</span>
-      <form method="post" action="{{ url_for('auth.signout') }}">
-        <button class="btn btn-secondary" type="submit">Sign out</button>
-      </form>
+      <div class="profile-menu">
+        <button class="header-icon profile-button" id="profileMenuButton" type="button"
+                aria-label="Open profile menu" aria-expanded="false" aria-controls="profile-menu">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>
+          </svg>
+        </button>
+        <div class="profile-menu-panel" id="profile-menu" role="menu" aria-label="Profile options" hidden>
+          <a class="profile-menu-item" role="menuitem"
+             href="{{ url_for('profile') if session.get('customer_id') is none else url_for('account.overview') }}">
+            View profile
+          </a>
+          <form method="post" action="{{ url_for('auth.signout') }}">
+            <button class="profile-menu-item" role="menuitem" type="submit">Log out</button>
+          </form>
+        </div>
+      </div>
       {% endif %}
       {% if session.get('user_id') %}
       <div class="notification-wrapper">
@@ -55,14 +73,6 @@
             <circle cx="12" cy="12" r="4"/><path d="M12 2v2 M12 20v2 M2 12h2 M20 12h2 M4.93 4.93l1.42 1.42 M17.65 17.65l1.42 1.42 M4.93 19.07l1.42-1.42 M17.65 6.35l1.42-1.42"/>
         </svg>
       </button>
-      {% if session.get('user_id') and session.get('customer_id') is none %}
-      <a href="{{ url_for('profile') }}" class="header-icon profile-button" aria-label="View profile" title="Profile">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>
-          </svg>
-      </a>
-      {% endif %}
-
     </div>
 
   </header>
@@ -77,7 +87,7 @@
       </a>
       {% elif not session.get('user_id') %}
       <a class="side-link" href="{{ url_for('auth.signin') }}">
-        <span class="side-icon" aria-hidden="true">→</span><span>Sign in</span>
+        <span class="side-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 4h4v16h-4M11 8l4 4-4 4M15 12H3"/></svg></span><span>Sign in</span>
       </a>
       {% else %}
       <a class="side-link {% if active_page == 'fridges' %}active{% endif %}" href="{{ url_for('fridges') }}" {% if active_page == 'fridges' %}aria-current="page"{% endif %}>
@@ -143,6 +153,7 @@
   <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <script src="{{ url_for('static', filename='js/toasts.js') }}"></script>
   <script src="{{ url_for('static', filename='js/layout.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/profile-menu.js') }}"></script>
   <script src="{{ url_for('static', filename='js/i18n.js')}}"></script>
   {% block scripts %}{% endblock %}
 </body>

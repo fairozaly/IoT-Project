@@ -1,4 +1,4 @@
-import RPi.GPIO as GPIO
+from gpio_backend import GPIO
 
 FAN_ENABLE_IO = 22
 FAN_INPUT_1_IO = 27

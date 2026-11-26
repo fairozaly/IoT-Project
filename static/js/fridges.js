@@ -181,6 +181,26 @@
       if (samples.length > MAX_SAMPLES) samples.shift();
     });
   }
+  function seedHistory() {
+    const source = document.getElementById('fd-history-data');
+    if (!source) return;
+    try {
+      const groups = JSON.parse(source.textContent || '[]');
+      groups.forEach(function (group) {
+        (group.readings || []).forEach(function (reading) {
+          record([{
+            name: group.name,
+            reading_id: reading.reading_id,
+            timestamp: reading.timestamp,
+            temperature: reading.temperature,
+            humidity: reading.humidity
+          }]);
+        });
+      });
+    } catch (err) {
+      // The server-rendered history table remains usable if chart seed data is invalid.
+    }
+  }
   function fillFilter(id, readings) {
     const select = document.getElementById(id);
     const previous = select.value;
@@ -355,6 +375,7 @@
 
   if (grid) grid.replaceChildren();
   if (hasCharts) {
+    seedHistory();
     document.getElementById('fd-temp-filter').addEventListener('change', redraw);
     document.getElementById('fd-humidity-filter').addEventListener('change', redraw);
     redraw();

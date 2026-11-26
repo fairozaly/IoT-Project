@@ -5,9 +5,8 @@
 <section class="page-section">
   <div class="page-heading">
     <div>
-      <p class="eyebrow">CUSTOMER MANAGEMENT</p>
-      <h1>Users</h1>
-      <p class="subhead">View and manage registered customers</p>
+      <h1>Customers</h1>
+      <p class="subhead">View and manage registered customers.</p>
     </div>
     <a class="btn btn-primary" href="{{ url_for('register') }}">+ Add Customer</a>
   </div>
@@ -42,6 +41,38 @@
         <a href="{{ url_for('register') }}" class="btn btn-primary">Add customer</a>
       </div>
       {% endfor %}
+    </div>
+  </div>
+</section>
+<section class="page-section" aria-labelledby="account-management-title">
+  <div class="section-panel">
+    <div class="section-heading">
+      <div class="section-title"><h2 id="account-management-title">Account access</h2></div>
+      <span class="count-pill">{{ accounts|length }} accounts</span>
+    </div>
+    <div class="customer-grid">
+      {% for account in accounts %}
+      <article class="customer-card">
+        <div class="customer-info">
+          <h3>{{ account.account_email }}</h3>
+          <p>Role: {{ 'Administrator' if account.role == 'admin' else 'Customer' }}</p>
+          {% if account.customer_id %}<p>{{ account.first_name }} {{ account.last_name }}</p>{% endif %}
+          <div class="customer-actions">
+            {% if account.role == 'customer' %}
+            <form method="post" action="{{ url_for('update_account_role', user_id=account.user_id) }}">
+              <input type="hidden" name="action" value="promote">
+              <button type="submit" class="btn btn-secondary">Promote to administrator</button>
+            </form>
+            {% else %}
+            <form method="post" action="{{ url_for('update_account_role', user_id=account.user_id) }}">
+              <input type="hidden" name="action" value="demote">
+              <button type="submit" class="btn btn-secondary">Demote to customer</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+      {% else %}<p>No accounts yet.</p>{% endfor %}
     </div>
   </div>
 </section>

@@ -2,24 +2,24 @@
 {% block title %}Self-Checkout{% endblock %}
 {% block header_title %}Self-Checkout{% endblock %}
 {% block body_class %}checkout-page{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">{% endblock %}
 {% block content %}
 <div class="sc-shell" id="selfCheckout" data-member="{{ 'true' if session.get('customer_id') is not none else 'false' }}">
-  <header class="sc-heading"><div><p class="sc-eyebrow">SMART STORE / SELF-SERVICE</p><h1>Self-Checkout</h1><p>Place your RFID-tagged products near the reader to begin.</p></div><span class="sc-session"><span class="sc-live-dot"></span> Checkout session</span></header>
+  <header class="sc-heading"><div><h1>Self-checkout</h1><p>Place your products in the reader.</p></div>{% if not session.get('user_id') %}<div class="sc-heading-actions"><a class="sc-btn sc-btn-soft sc-signin-cta" href="{{ url_for('auth.signin') }}">Sign in</a></div>{% endif %}</header>
   {% set signed_in_member = session.get('customer_id') is not none %}
-  <div class="sc-steps" aria-label="Checkout progress">
-    <span class="sc-step is-active" data-step="1" aria-current="step"><b>1</b> Scan items</span>
-    {% if not signed_in_member %}<span class="sc-step" data-step="2"><b>2</b> Membership</span>{% endif %}
-    <span class="sc-step" data-step="3"><b>{{ 2 if signed_in_member else 3 }}</b> Review &amp; pay</span>
-  </div>
+  <ol class="sc-steps" aria-label="Checkout progress">
+    <li class="sc-step is-active" data-step="1" aria-current="step"><b>1</b><span>Scan items</span></li>
+    {% if not signed_in_member %}<li class="sc-step" data-step="2"><b>2</b><span>Membership</span></li>{% endif %}
+    <li class="sc-step" data-step="3"><b>{{ 2 if signed_in_member else 3 }}</b><span>Review and pay</span></li>
+  </ol>
   <div class="sc-layout">
     <div class="sc-left">
-      <section class="sc-panel sc-scanner" aria-labelledby="scScanTitle"><div class="sc-panel-title"><div><h2 id="scScanTitle">RFID Product Scanner</h2><p>All tags detected in a single scan are processed together.</p></div><span id="scReaderBadge" class="sc-pill">Not connected</span></div>
+      <section class="sc-panel sc-scanner" aria-labelledby="scScanTitle"><div class="sc-panel-title"><div><h2 id="scScanTitle">Scan products</h2><p>All tags in the reader are processed together.</p></div><span id="scReaderBadge" class="sc-reader-status" role="status" aria-live="polite">Reader not connected</span></div>
       <div class="sc-scan-zone"><div class="sc-scan-illustration" aria-hidden="true"><svg viewBox="0 0 100 100"><rect x="23" y="27" width="54" height="46" rx="9" fill="none" stroke="currentColor" stroke-width="3"/><path d="M38 40v20m7-20v20m8-20v20m7-20v20M13 22V13h9m56 0h9v9M13 78v9h9m56 0h9v-9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></div><h3 id="scScanHeadline">Scanning automatically</h3><p id="scScanCaption">Place your products in the reader detection area.</p><p class="sc-helper">The reader starts automatically. Scan results appear here as tags are detected.</p></div>
+      <div id="scMockControls" class="sc-mock-controls" hidden data-products="{{ mock_products | tojson | forceescape }}"></div>
       <div class="sc-event-row"><span id="scLastScan">No tags detected yet</span><span id="scScanCount">0 unique tags</span></div>
       <div id="scNotice" class="sc-notice" role="status" aria-live="polite" hidden></div>
       </section>
-      <section class="sc-panel sc-basket" aria-labelledby="scBasketTitle"><div class="sc-panel-title"><div><h2 id="scBasketTitle">Shopping List <span class="sc-count" id="scItemsCount">0</span></h2><p>Items appear as they are scanned. Use Clear cart to start over.</p></div><button type="button" class="sc-link" id="scClearCart">Clear cart</button></div><div id="scCartItems" class="sc-cart-items"><div class="sc-empty"><div class="sc-empty-icon">🛒</div><strong>Your basket is empty</strong><p>Scan products to see them here.</p></div></div></section>
+      <section class="sc-panel sc-basket" aria-labelledby="scBasketTitle"><div class="sc-panel-title"><div><h2 id="scBasketTitle">Shopping List <span class="sc-count" id="scItemsCount">0</span></h2><p>Items appear as they are scanned. Use Clear cart to start over.</p></div><button type="button" class="sc-link" id="scClearCart">Clear cart</button></div><div id="scCartItems" class="sc-cart-items"><div class="sc-empty"><div class="sc-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4h2l2.4 11h10.2L20 7H6"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg></div><strong>Your basket is empty</strong><p>Scan products to see them here.</p></div></div></section>
     </div>
     <div class="sc-right"><section class="sc-panel sc-summary"><div class="sc-panel-title"><div><h2>Order Summary</h2></div></div><div class="sc-summary-line"><span>Items</span><strong id="scQuantity">0</strong></div><div class="sc-summary-line"><span>Subtotal</span><strong id="scSubtotal">$0.00</strong></div><div class="sc-summary-total"><span>Total</span><strong id="scTotal">$0.00</strong></div><p class="sc-small"><button class="sc-btn sc-btn-primary sc-full" type="button" id="scNext" disabled>{{ 'Review and pay' if session.get('customer_id') is not none else 'Continue to membership' }}</button></p></section>
     <section class="sc-panel sc-flow" id="scMemberSection" aria-labelledby="scMembershipTitle"{% if not signed_in_member %} hidden{% endif %}>
@@ -27,7 +27,7 @@
         <div><h2 id="scMembershipTitle">Membership</h2>
           <p>{{ 'Applied automatically' if signed_in_member else 'Earn points by adding your membership.' }}</p>
         </div>
-        {% if not signed_in_member %}<span class="sc-pill">Optional</span>{% endif %}
+        {% if not signed_in_member %}<span class="sc-section-note">Optional</span>{% endif %}
       </div>
       <div class="sc-member-status is-applied" id="scMemberStatus"{% if not checkout_customer %} hidden{% endif %}>
         <span class="sc-member-icon" aria-hidden="true">✓</span>
@@ -45,11 +45,11 @@
       </div>
       {% if not signed_in_member %}
       <form id="scMembershipForm" class="sc-member-form" data-applied="{{ 'true' if checkout_customer else 'false' }}"{% if checkout_customer %} hidden{% endif %}>
-        <label class="sc-field" for="scMembershipNumber">Membership number or email
-          <input id="scMembershipNumber" name="membership" type="text" maxlength="254"
-                 autocomplete="off" spellcheck="false" autocapitalize="none"
+        <label class="sc-field" for="scMembershipNumber">Membership number
+          <input id="scMembershipNumber" name="membership" type="text" maxlength="64"
+                 inputmode="numeric" autocomplete="off" spellcheck="false" autocapitalize="none"
                  aria-describedby="scMembershipHelp scMembershipMessage">
-          <small id="scMembershipHelp">Scan your membership barcode or type your number or email, then press Enter.</small>
+          <small id="scMembershipHelp">Scan your membership barcode or enter the number, then press Enter.</small>
         </label>
         <button type="submit" class="sc-btn sc-btn-soft sc-full" id="scApplyMembership">Apply membership</button>
       </form>
@@ -59,7 +59,7 @@
       </div>
       {% endif %}
     </section>
-    <section class="sc-panel sc-flow" id="scPaymentSection" aria-labelledby="scPaymentTitle">
+    <section class="sc-panel sc-flow" id="scPaymentSection" aria-labelledby="scPaymentTitle" hidden>
       <div class="sc-panel-title"><div><h2 id="scPaymentTitle">Review &amp; pay</h2><p>Confirm your total and complete the purchase.</p></div></div>
       <form method="post" action="{{ url_for('cart.complete_checkout') }}" id="scPaymentForm" novalidate>
         <div class="sc-checkout-due"><span>Amount to pay</span><strong id="scPaymentAmount">$0.00</strong></div>

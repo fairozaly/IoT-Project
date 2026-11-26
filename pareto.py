@@ -4,6 +4,8 @@ from math import isfinite
 
 from config import FRIDGE3_BLE_DEVICE
 from db import get_db
+from msp01.ingest import get_latest_reading as get_latest_msp01_reading
+from msp01.ingest import ingest_dynamb
 
 DEVICE = FRIDGE3_BLE_DEVICE
 if not re.fullmatch(r"[0-9a-f]{12}/[23]", DEVICE):
@@ -58,6 +60,14 @@ def store_message(topic, payload):
         if metric in event and valid_value(metric, event[metric])
     ]
     if readings:
+        # Keep the existing latest-metric table and also retain a full MSP01
+        # history snapshot for temperature, humidity, light, and motion.
+        try:
+            ingest_dynamb(event, device=DEVICE)
+        except ValueError:
+            # Pareto's existing metric path remains tolerant of partial
+            # dynamb events that do not contain a complete supported snapshot.
+            pass
         db = get_db()
         with db:
             db.executemany(
@@ -77,7 +87,8 @@ def latest_fridge():
         "SELECT metric, value, timestamp FROM ParetoMetrics WHERE device = ?", (DEVICE,)
     )
     metrics = {row["metric"]: row for row in rows if row["metric"] in METRICS}
-    if not metrics:
+    historical = get_latest_msp01_reading(DEVICE)
+    if not metrics and historical is None:
         return None
 
     reading = dict.fromkeys(METRICS.values())
@@ -87,14 +98,28 @@ def latest_fridge():
         if reading[key] is not None:
             reading[key] = any(reading[key])
 
+    if historical is not None:
+        for metric, field in (
+            ("temperature", "temperature"),
+            ("humidity", "humidity"),
+            ("illuminance", "light"),
+        ):
+            if historical[field] is not None:
+                reading[metric] = historical[field]
+        if historical["motion"] is not None:
+            reading["motion"] = bool(historical["motion"])
+
     return {
         **reading,
         "name": "Fridge 3",
         "bluetooth": True,
-        "timestamp": max(row["timestamp"] for row in metrics.values()),
+        "timestamp": max(
+            [row["timestamp"] for row in metrics.values()]
+            + ([historical["timestamp"] * 1000] if historical is not None else [])
+        ),
         "reading_id": max(
             (metrics[key]["timestamp"] for key in ("temperature", "relativeHumidity")
              if key in metrics),
-            default=None,
+            default=historical["timestamp"] * 1000 if historical is not None else None,
         ),
     }
